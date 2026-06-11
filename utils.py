@@ -29,7 +29,7 @@ def compute_w2(samples_1, samples_2):
     return wasserstein_distance_nd(samples_1_np, samples_2_np)
 
 def compute_sliced_w2(samples_1, samples_2, n_projections=100):
-    projections = torch.randn(n_projections, samples_1.size(1))
+    projections = torch.randn(n_projections, samples_1.size(1)).to(samples_1.device)
     projections = projections / torch.norm(projections, dim=1, keepdim=True)
     
     samples_1_projections = samples_1 @ projections.T
