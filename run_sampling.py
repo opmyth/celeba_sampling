@@ -2,6 +2,8 @@ import argparse
 import torch
 import numpy as np
 import torch.nn.functional as F
+import time
+
 
 from tqdm import tqdm
 from huggingface_hub import hf_hub_download
@@ -97,7 +99,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
 
     return w2_values, w2_baseline, samples, avg_log_reward, diversity, male_fraction
 
-
+start = time.time()
 vae_w2_values, vae_w2_baseline, vae_samples, vae_avg_log_reward, vae_diversity, vae_male_fraction = run_trials(
     vae, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
 )
@@ -105,7 +107,7 @@ vae_w2_values, vae_w2_baseline, vae_samples, vae_avg_log_reward, vae_diversity, 
 dcgan_w2_values, dcgan_w2_baseline, dcgan_samples, dcgan_avg_log_reward, dcgan_diversity, dcgan_male_fraction = run_trials(
     dcgan, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
 )
-
+print(f"Total time: {time.time() - start:.2f}s")
 torch.save({
     'vae': {
         'w2_values': vae_w2_values,
