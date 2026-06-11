@@ -56,6 +56,8 @@ male_clf.load_state_dict(torch.load('checkpoints/male_clf.pth', weights_only=Fal
 male_clf.to(device)
 male_clf.eval()
 
+
+
 def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_trials=10, seed=321):
     torch.manual_seed(seed)
     
@@ -67,35 +69,58 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     diversity = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
     male_fraction = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
 
+    t = time.time()
     RS_samples = rejection_sampling(model, clf, n_chains * n_trials * 2, device=device)
-    chunks = torch.chunk(RS_samples, n_trials*2 , dim=0)
-    w2_baseline = [compute_w2(chunks[2*i], chunks[2*i + 1]) for i in range(n_trials)]
-    samples['RS'] = list(chunks[::+2])
+    print(f"RS done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
+    chunks = torch.chunk(RS_samples, n_trials*2, dim=0)
+    w2_baseline = [compute_w2(chunks[2*i], chunks[2*i + 1]) for i in range(n_trials)]
+    samples['RS'] = list(chunks[::2])
+    print(f"RS W2 baseline done: {time.time()-t:.2f}s", flush=True)
+
+    t = time.time()
     ULA_samples = latent_ULA_celeba(model, clf, n_chains * n_trials, n_steps, dt, device=device)[-1]
+    print(f"ULA done: {time.time()-t:.2f}s", flush=True)
+    t = time.time()
     ULA_chunks = torch.chunk(ULA_samples, n_trials, dim=0)
     w2_values['ULA'] = [compute_w2(ULA_chunks[i], chunks[2*i]) for i in range(n_trials)]
-    samples['ULA'] = list(ULA_chunks) 
+    samples['ULA'] = list(ULA_chunks)
+    print(f"ULA W2 done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
     MALA_samples = latent_MALA_celeba(model, clf, n_chains * n_trials, n_steps, dt, device=device)[-1]
+    print(f"MALA done: {time.time()-t:.2f}s", flush=True)
+    t = time.time()
     MALA_chunks = torch.chunk(MALA_samples, n_trials, dim=0)
     w2_values['MALA'] = [compute_w2(MALA_chunks[i], chunks[2*i]) for i in range(n_trials)]
     samples['MALA'] = list(MALA_chunks)
+    print(f"MALA W2 done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
     gaussianMH_samples = latent_Gaussian_MH_celeba(model, clf, n_chains * n_trials, n_steps, sigma, device=device)[-1]
+    print(f"G_MH done: {time.time()-t:.2f}s", flush=True)
+    t = time.time()
     gaussianMH_chunks = torch.chunk(gaussianMH_samples, n_trials, dim=0)
     w2_values['G_MH'] = [compute_w2(gaussianMH_chunks[i], chunks[2*i]) for i in range(n_trials)]
     samples['G_MH'] = list(gaussianMH_chunks)
+    print(f"G_MH W2 done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
     for name in avg_log_reward:
         with torch.no_grad():
             avg_log_reward[name] = [F.logsigmoid(clf(model(samples[name][i]))).mean().item() for i in range(n_trials)]
+    print(f"avg_log_reward done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
     for name in diversity:
         diversity[name] = [compute_diversity(model, samples[name][i]).item() for i in range(n_trials)]
+    print(f"diversity done: {time.time()-t:.2f}s", flush=True)
 
+    t = time.time()
     for name in male_fraction:
         male_fraction[name] = [compute_male_fraction(model, male_clf, samples[name][i]) for i in range(n_trials)]
+    print(f"male_fraction done: {time.time()-t:.2f}s", flush=True)
 
     return w2_values, w2_baseline, samples, avg_log_reward, diversity, male_fraction
 
