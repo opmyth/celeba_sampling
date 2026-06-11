@@ -20,10 +20,13 @@ cd ~/dissertation
 nvidia-smi
 
 python run_sampling.py \
---n_chains 50 \
---n_steps 100 \
---n_trails 3 \
---output_path results_pipeline_check.pt
+    --n_chains 1000 \
+    --n_steps 2 \
+    --n_trials 1 \
+    --dt 0.01 \
+    --sigma 0.5 \
+    --output_path results_benchmark.pt
 
 echo "Finished: $(date -u)"
+
 

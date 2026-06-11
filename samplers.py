@@ -67,14 +67,14 @@ def rejection_sampling(model, clf, n_chains, device):
     total_accepted, total_proposed = 0, 0
     samples = []
     pbar = tqdm(total=n_chains, desc='Rejection Sampling')
-
+    batch_size = 512
     while total_accepted < n_chains:
-        z_prop = torch.randn(n_chains*5, model.latent_dim).to(device)
+        z_prop = torch.randn(batch_size, model.latent_dim).to(device)
         with torch.no_grad():
             imgs_norm = model(z_prop)
             probs = torch.sigmoid(clf(imgs_norm)).squeeze()
 
-        accept = torch.rand(n_chains*5).to(device) <= probs
+        accept = torch.rand(batch_size).to(device) <= probs
         current_accepted = z_prop[accept]
 
         if current_accepted.size(0) > 0:
@@ -83,7 +83,7 @@ def rejection_sampling(model, clf, n_chains, device):
             pbar.update(current_accepted.size(0))
 
         total_proposed+=z_prop.size(0)
-
+        print(f"accepted: {total_accepted}/{n_chains}, proposed: {total_proposed}", flush=True)
     # print(f'accept_rate: {total_accepted/total_proposed:.2f}')
     pbar.close()
     return torch.cat(samples, dim=0)[:n_chains]
