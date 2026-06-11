@@ -28,6 +28,19 @@ def compute_w2(samples_1, samples_2):
     samples_2_np = samples_2.detach().cpu().numpy()
     return wasserstein_distance_nd(samples_1_np, samples_2_np)
 
+def compute_sliced_w2(samples_1, samples_2, n_projections=100):
+    projections = torch.randn(n_projections, samples_1.size(1))
+    projections = projections / torch.norm(projections, dim=1, keepdim=True)
+    
+    samples_1_projections = samples_1 @ projections.T
+    samples_2_projections = samples_2 @ projections.T
+    
+    samples_1_sorted = torch.sort(samples_1_projections, dim=0).values
+    samples_2_sorted = torch.sort(samples_2_projections, dim=0).values
+
+    return torch.mean(torch.abs(samples_1_sorted - samples_2_sorted)).item()
+    
+
 def compute_stats(w2_values):
     return {name: {'mean': np.mean(w2_values[name]), 'std':np.std(w2_values[name], ddof=1)} for name in w2_values}
 
@@ -78,6 +91,3 @@ def compute_male_fraction(model, male_clf, z_samples):
         logits = male_clf(imgs).squeeze()
         preds = (logits > 0).float()
     return preds.mean().item()
-
-
-
