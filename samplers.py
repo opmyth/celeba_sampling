@@ -9,8 +9,8 @@ def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device):
     z = z = torch.randn(n_chains, latent_dim).to(device)
     samples = []
     
-    # for step in tqdm(range(n_steps), desc="ULA"):
-    for step in range(n_steps):
+    for step in tqdm(range(n_steps), desc="ULA"):
+    # for step in range(n_steps):
         samples.append(z.clone())
         
         z = z + dt * grad_log_posterior_celeba(z, model, clf) + np.sqrt(2*dt) * torch.randn(n_chains, latent_dim).to(device)
@@ -23,8 +23,8 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
     samples = []
     z_grad = grad_log_posterior_celeba(z, model, clf)
     
-    # for step in tqdm(range(n_steps), desc="MALA"):
-    for step in range(n_steps):
+    for step in tqdm(range(n_steps), desc="MALA"):
+    # for step in range(n_steps):
         samples.append(z.clone())
         
         z_prop = z + dt * z_grad + np.sqrt(2*dt) * torch.randn(n_chains, latent_dim).to(device)
@@ -49,8 +49,8 @@ def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device):
     log_p_z = log_posterior_celeba(z, model, clf)
     samples = []
     
-    # for step in tqdm(range(n_steps), desc="G_MH"):
-    for step in range(n_steps):
+    for step in tqdm(range(n_steps), desc="G_MH"):
+    # for step in range(n_steps):
         samples.append(z.clone())
         
         z_prop = z + sigma * torch.randn_like(z)
@@ -66,6 +66,7 @@ def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device):
 def rejection_sampling(model, clf, n_chains, device):
     total_accepted, total_proposed = 0, 0
     samples = []
+    pbar = tqdm(total=n_chains, desc='Rejection Sampling')
 
     while total_accepted < n_chains:
         z_prop = torch.randn(n_chains*5, model.latent_dim).to(device)
@@ -79,10 +80,11 @@ def rejection_sampling(model, clf, n_chains, device):
         if current_accepted.size(0) > 0:
             samples.append(current_accepted)
             total_accepted+=current_accepted.size(0)
+            pbar.update(current_accepted.size(0))
 
         total_proposed+=z_prop.size(0)
 
     # print(f'accept_rate: {total_accepted/total_proposed:.2f}')
-
+    pbar.close()
     return torch.cat(samples, dim=0)[:n_chains]
         
