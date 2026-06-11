@@ -1,3 +1,0 @@
-Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
-Rejection Sampling:   0%|          | 0/2000 [00:00<?, ?it/s]Rejection Sampling: 5156it [00:06, 749.30it/s]              Rejection Sampling: 5156it [00:06, 749.25it/s]
-[2026-06-11T18:42:49.130] error: *** JOB 3502207 ON landonia11 CANCELLED AT 2026-06-11T18:42:49 DUE to SIGNAL Terminated ***
