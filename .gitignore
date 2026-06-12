@@ -6,3 +6,4 @@ __pycache__/
 checkpoints/
 stylegan2-ada-pytorch/
 stylegan2_checkpoints/
+data/

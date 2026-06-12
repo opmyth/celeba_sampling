@@ -84,10 +84,10 @@ class classifier(nn.Module):
             nn.Conv2d(128, 256, 4, 2, 1),
             nn.ReLU(),
         )
-        self.fc = nn.Linear(256*4*4, 1)
+        self.fc = nn.Linear(256*16*16, 1)
         
     def forward(self, x):
         #x.shape(B, 3, 64, 64)
-        x = self.conv(x) # (B, 256, 4, 4)
+        x = self.conv(x) # (B, 256, 16, 16)
         x = x.view(x.size(0), -1) # (B, 256*4*4)
         return self.fc(x) #(B, 1)        
