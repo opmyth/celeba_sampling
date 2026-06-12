@@ -40,7 +40,6 @@ def compute_sliced_w2(samples_1, samples_2, n_projections=100):
 
     return torch.mean(torch.abs(samples_1_sorted - samples_2_sorted)).item()
     
-
 def compute_stats(w2_values):
     return {name: {'mean': np.mean(w2_values[name]), 'std':np.std(w2_values[name], ddof=1)} for name in w2_values}
 
@@ -83,7 +82,10 @@ def compute_diversity(model, z_samples, n_pairs=500):
     idx_j = idx_j[mask]
 
     distances = torch.norm(imgs_flat[idx_i] - imgs_flat[idx_j], dim=1)
-    return distances.mean()
+    return distances.mean().item()
+
+def compute_diversity_cov(z_samples):
+    return torch.trace(torch.cov(z_samples.T)).item()
 
 def compute_male_fraction(model, male_clf, z_samples):
     with torch.no_grad():

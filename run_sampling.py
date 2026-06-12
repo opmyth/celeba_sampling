@@ -9,7 +9,7 @@ from tqdm import tqdm
 from huggingface_hub import hf_hub_download
 from models import CelebAGenerator, CelebaVAE, classifier
 from samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba, rejection_sampling
-from utils import compute_sliced_w2, compute_diversity, compute_male_fraction
+from utils import compute_sliced_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_chains', type=int, default=100)
@@ -67,6 +67,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     samples = {'RS': None, 'ULA': None, 'MALA': None, 'G_MH': None}
     avg_log_reward = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
     diversity = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
+    diversity_trace_cov = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
     male_fraction = {'RS': [], 'ULA': [], 'MALA': [], 'G_MH': []}
 
     t = time.time()
@@ -114,22 +115,27 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
 
     t = time.time()
     for name in diversity:
-        diversity[name] = [compute_diversity(model, samples[name][i]).item() for i in range(n_trials)]
+        diversity[name] = [compute_diversity(model, samples[name][i]) for i in range(n_trials)]
     print(f"diversity done: {time.time()-t:.2f}s", flush=True)
+    
+    t = time.time()
+    for name in diversity_trace_cov:
+        diversity_trace_cov[name] = [compute_diversity_cov( samples[name][i]) for i in range(n_trials)]
+    print(f"diversity trace covariance done: {time.time()-t:.2f}s", flush=True)
 
     t = time.time()
     for name in male_fraction:
         male_fraction[name] = [compute_male_fraction(model, male_clf, samples[name][i]) for i in range(n_trials)]
     print(f"male_fraction done: {time.time()-t:.2f}s", flush=True)
 
-    return w2_values, w2_baseline, samples, avg_log_reward, diversity, male_fraction
+    return w2_values, w2_baseline, samples, avg_log_reward, diversity, diversity_trace_cov, male_fraction
 
 start = time.time()
-vae_w2_values, vae_w2_baseline, vae_samples, vae_avg_log_reward, vae_diversity, vae_male_fraction = run_trials(
+vae_w2_values, vae_w2_baseline, vae_samples, vae_avg_log_reward, vae_diversity, vae_diversity_trace_cov, vae_male_fraction = run_trials(
     vae, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
 )
 
-dcgan_w2_values, dcgan_w2_baseline, dcgan_samples, dcgan_avg_log_reward, dcgan_diversity, dcgan_male_fraction = run_trials(
+dcgan_w2_values, dcgan_w2_baseline, dcgan_samples, dcgan_avg_log_reward, dcgan_diversity, dcgan_diversity_trace_cov, dcgan_male_fraction = run_trials(
     dcgan, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
 )
 print(f"Total time: {time.time() - start:.2f}s")
@@ -140,6 +146,7 @@ torch.save({
         'samples': vae_samples,
         'avg_log_reward': vae_avg_log_reward,
         'diversity': vae_diversity,
+        'diversity_trace_cov': vae_diversity_trace_cov,
         'male_fraction': vae_male_fraction,
     },
     'dcgan': {
@@ -148,6 +155,7 @@ torch.save({
         'samples': dcgan_samples,
         'avg_log_reward': dcgan_avg_log_reward,
         'diversity': dcgan_diversity,
+        'diversity_trace_cov': dcgan_diversity_trace_cov,
         'male_fraction': dcgan_male_fraction,
     }
 }, args.output_path)
