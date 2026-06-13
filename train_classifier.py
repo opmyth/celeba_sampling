@@ -19,7 +19,7 @@ def train_classifier(model, train_loader, attr, device, epochs=10, lr=1e-3):
     model.to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
     
-    for ep in range(epochs):
+    for ep in tqdm(range(epochs), desc='Training epochs'):
         print(f"epoch: {ep+1} running!")
         model.train()
         n_samples, correct , total_loss = 0, 0, 0.0
@@ -42,9 +42,11 @@ celeba_transforms = transforms.Compose([
     transforms.Resize((256,256)),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
+
+print('Downloading the dataset')
 celeba_dataset = datasets.CelebA(root='./data', split='train', target_type='attr', transform=celeba_transforms, download=True)
 train_loader = DataLoader(celeba_dataset, batch_size=256, shuffle=True)
 
 clf = classifier().to(device)
 train_classifier(clf, train_loader, args.attr, device)
-torch.save(clf.state_dict(), f'./checkpoints/{args.attr_name}.pth')
+torch.save(clf.state_dict(), f'./checkpoints/{args.attr_name}_clf.pth')
