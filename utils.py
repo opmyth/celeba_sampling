@@ -2,10 +2,12 @@ import torch
 
 import numpy as np
 import torch.nn.functional as F
+import ot
 
 from itertools import combinations
 from scipy.stats import wasserstein_distance_nd
 from scipy.stats import ttest_rel
+
 
 def log_posterior_celeba(z, model, clf):
     model.eval(); clf.eval()
@@ -26,7 +28,14 @@ def grad_log_posterior_celeba(z, model, clf):
 def compute_w2(samples_1, samples_2):
     samples_1_np = samples_1.detach().cpu().numpy()
     samples_2_np = samples_2.detach().cpu().numpy()
-    return wasserstein_distance_nd(samples_1_np, samples_2_np)
+    
+    n1, n2 = samples_1_np.shape[0], samples_2_np.shape[0]
+    a = np.ones(n1) / n1
+    b = np.ones(n2) / n2
+    
+    M = ot.dist(samples_1_np, samples_2_np, metric='sqeuclidean')
+    w2_squared = ot.emd2(a, b, M)
+    return np.sqrt(w2_squared)
 
 def compute_sliced_w2(samples_1, samples_2, n_projections=100):
     projections = torch.randn(n_projections, samples_1.size(1)).to(samples_1.device)
@@ -38,7 +47,7 @@ def compute_sliced_w2(samples_1, samples_2, n_projections=100):
     samples_1_sorted = torch.sort(samples_1_projections, dim=0).values
     samples_2_sorted = torch.sort(samples_2_projections, dim=0).values
 
-    return torch.mean(torch.abs(samples_1_sorted - samples_2_sorted)).item()
+    return torch.sqrt(torch.mean((samples_1_sorted - samples_2_sorted)**2)).item()
     
 def compute_stats(w2_values):
     return {name: {'mean': np.mean(w2_values[name]), 'std':np.std(w2_values[name], ddof=1)} for name in w2_values}
