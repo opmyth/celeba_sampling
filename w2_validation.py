@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(0, '/home/s2800722/dissertation/stylegan2-ada-pytorch')
+
 print("imports....")
 from samplers import rejection_sampling
 from utils import compute_w2, compute_sliced_w2
@@ -11,7 +14,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(f'Using device {device}')
 
 print("loading the classifier....")
-smile_clf = classifier()
+smile_clf = classifier().to(device)
 smile_clf.load_state_dict(torch.load('./clf_checkpoints/smile_clf.pth', map_location=device, weights_only=False))
 smile_clf.eval()
 

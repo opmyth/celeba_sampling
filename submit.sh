@@ -4,8 +4,8 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --output=logs/testing_stylegan-%j.out
-#SBATCH --error=logs/testing_stylegan-%j.err
+#SBATCH --output=logs/sliced_w2-validation-%j.out
+#SBATCH --error=logs/sliced_w2-validation-%j.err
 #SBATCH --exclude=opencast
 
 echo "Job ID: ${SLURM_JOB_ID}"
@@ -21,7 +21,7 @@ cd ~/dissertation
 
 nvidia-smi
 
-python stylegan_sampling.py
+python w2_validation.py
 
 echo "Finished: $(date -u)"
 
