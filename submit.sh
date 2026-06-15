@@ -4,8 +4,8 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --output=logs/sampling-%j.out
-#SBATCH --error=logs/sampling-%j.err
+#SBATCH --output=logs/testing_stylegan-%j.out
+#SBATCH --error=logs/testing_stylegan-%j.err
 #SBATCH --exclude=opencast
 
 echo "Job ID: ${SLURM_JOB_ID}"
@@ -21,7 +21,7 @@ cd ~/dissertation
 
 nvidia-smi
 
-python train_classifier.py 31 smile
+python stylegan_sampling.py
 
 echo "Finished: $(date -u)"
 

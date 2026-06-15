@@ -91,3 +91,12 @@ class classifier(nn.Module):
         x = self.conv(x) # (B, 256, 16, 16)
         x = x.view(x.size(0), -1) # (B, 256*4*4)
         return self.fc(x) #(B, 1)        
+
+class StyleGAN2Wrapper(nn.Module):
+    def __init__(self, G):
+        super().__init__()
+        self.G = G
+        self.latent_dim = G.z_dim  # 512
+
+    def forward(self, z):
+        return self.G(z, None)

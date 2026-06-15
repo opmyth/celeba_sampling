@@ -9,6 +9,7 @@ from tqdm import tqdm
 from models import classifier
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device: {device}")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('attr', type=int)
@@ -49,4 +50,4 @@ train_loader = DataLoader(celeba_dataset, batch_size=256, shuffle=True)
 
 clf = classifier().to(device)
 train_classifier(clf, train_loader, args.attr, device)
-torch.save(clf.state_dict(), f'./checkpoints/{args.attr_name}_clf.pth')
+torch.save(clf.state_dict(), f'./clf_checkpoints/{args.attr_name}_clf.pth')

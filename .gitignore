@@ -8,4 +8,4 @@ stylegan2-ada-pytorch/
 stylegan2_checkpoints/
 data/
 submit.sh
-
+clf_checkpoints
