@@ -3,7 +3,7 @@ sys.path.insert(0, '/home/s2800722/dissertation/stylegan2-ada-pytorch')
 
 print("imports....")
 from samplers import rejection_sampling
-from utils import compute_w2, compute_sliced_w2
+from utils import compute_w2, compute_w2
 from models import classifier, StyleGAN2Wrapper
 
 import pickle
@@ -39,7 +39,7 @@ w2_slices = {50: None, 100: None, 150: None, 200: None, 250: None, 300: None, 35
 
 print("computing sliced_w2....")
 for slice in w2_slices:
-    w2_slices[slice] = compute_sliced_w2(rs_1, rs_2, slice)
+    w2_slices[slice] = compute_w2(rs_1, rs_2, slice)
 
 print(f"The exact W2: {rs_w2}")
 

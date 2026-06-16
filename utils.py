@@ -37,17 +37,17 @@ def compute_w2(samples_1, samples_2):
     w2_squared = ot.emd2(a, b, M)
     return np.sqrt(w2_squared)
 
-def compute_sliced_w2(samples_1, samples_2, n_projections=200):
-    projections = torch.randn(n_projections, samples_1.size(1)).to(samples_1.device)
-    projections = projections / torch.norm(projections, dim=1, keepdim=True)
+# def compute_sliced_w2(samples_1, samples_2, n_projections=200):
+#     projections = torch.randn(n_projections, samples_1.size(1)).to(samples_1.device)
+#     projections = projections / torch.norm(projections, dim=1, keepdim=True)
     
-    samples_1_projections = samples_1 @ projections.T
-    samples_2_projections = samples_2 @ projections.T
+#     samples_1_projections = samples_1 @ projections.T
+#     samples_2_projections = samples_2 @ projections.T
     
-    samples_1_sorted = torch.sort(samples_1_projections, dim=0).values
-    samples_2_sorted = torch.sort(samples_2_projections, dim=0).values
+#     samples_1_sorted = torch.sort(samples_1_projections, dim=0).values
+#     samples_2_sorted = torch.sort(samples_2_projections, dim=0).values
 
-    return torch.sqrt(torch.mean((samples_1_sorted - samples_2_sorted)**2)).item()
+#     return torch.sqrt(torch.mean((samples_1_sorted - samples_2_sorted)**2)).item()
     
 def compute_stats(w2_values):
     return {name: {'mean': np.mean(w2_values[name]), 'std':np.std(w2_values[name], ddof=1)} for name in w2_values}

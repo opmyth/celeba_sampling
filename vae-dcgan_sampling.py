@@ -9,7 +9,7 @@ from tqdm import tqdm
 from huggingface_hub import hf_hub_download
 from models import rator, CelebaVAE, classifier
 rom samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba, rejection_sampling
-from utils import compute_sliced_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
+from utils import compute_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_chains', type=int, default=100)
@@ -76,7 +76,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
 
     t = time.time()
     chunks = torch.chunk(RS_samples, n_trials*2, dim=0)
-    w2_baseline = [compute_sliced_w2(chunks[2*i], chunks[2*i + 1]) for i in range(n_trials)]
+    w2_baseline = [compute_w2(chunks[2*i], chunks[2*i + 1]) for i in range(n_trials)]
     samples['RS'] = list(chunks[::2])
     print(f"RS W2 baseline done: {time.time()-t:.2f}s", flush=True)
 
@@ -85,7 +85,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     print(f"ULA done: {time.time()-t:.2f}s", flush=True)
     t = time.time()
     ULA_chunks = torch.chunk(ULA_samples, n_trials, dim=0)
-    w2_values['ULA'] = [compute_sliced_w2(ULA_chunks[i], chunks[2*i]) for i in range(n_trials)]
+    w2_values['ULA'] = [compute_w2(ULA_chunks[i], chunks[2*i]) for i in range(n_trials)]
     samples['ULA'] = list(ULA_chunks)
     print(f"ULA W2 done: {time.time()-t:.2f}s", flush=True)
 
@@ -94,7 +94,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     print(f"MALA done: {time.time()-t:.2f}s", flush=True)
     t = time.time()
     MALA_chunks = torch.chunk(MALA_samples, n_trials, dim=0)
-    w2_values['MALA'] = [compute_sliced_w2(MALA_chunks[i], chunks[2*i]) for i in range(n_trials)]
+    w2_values['MALA'] = [compute_w2(MALA_chunks[i], chunks[2*i]) for i in range(n_trials)]
     samples['MALA'] = list(MALA_chunks)
     print(f"MALA W2 done: {time.time()-t:.2f}s", flush=True)
 
@@ -103,7 +103,7 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     print(f"G_MH done: {time.time()-t:.2f}s", flush=True)
     t = time.time()
     gaussianMH_chunks = torch.chunk(gaussianMH_samples, n_trials, dim=0)
-    w2_values['G_MH'] = [compute_sliced_w2(gaussianMH_chunks[i], chunks[2*i]) for i in range(n_trials)]
+    w2_values['G_MH'] = [compute_w2(gaussianMH_chunks[i], chunks[2*i]) for i in range(n_trials)]
     samples['G_MH'] = list(gaussianMH_chunks)
     print(f"G_MH W2 done: {time.time()-t:.2f}s", flush=True)
 

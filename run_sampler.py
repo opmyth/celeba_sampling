@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from model_loader import load_models
 from samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba
-from utils import compute_sliced_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
+from utils import compute_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 SAMPLER_FNS = {
     'ULA': latent_ULA_celeba,
@@ -57,7 +57,7 @@ print(f"{args.sampler} done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
 samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
-w2_values = [compute_sliced_w2(samples_list[i], rs_samples_list[i]) for i in range(args.n_trials)]
+w2_values = [compute_w2(samples_list[i], rs_samples_list[i]) for i in range(args.n_trials)]
 print(f"{args.sampler} W2 done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
