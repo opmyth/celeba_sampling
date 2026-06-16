@@ -4,8 +4,8 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --output=logs/rs-stylegan-%j.out
-#SBATCH --error=logs/rs-stylegan-%j.err
+#SBATCH --output=logs/rs-testing_w2-%j.out
+#SBATCH --error=logs/rs-testing_w2-%j.err
 #SBATCH --exclude=saxa
 #SBATCH --exclude=opencast
 

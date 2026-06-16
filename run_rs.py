@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 from model_loader import load_models
 from samplers import rejection_sampling
-from utils import compute_sliced_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
+from utils import compute_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_chains', type=int, default=100)
@@ -30,7 +30,7 @@ print(f"RS done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
 chunks = torch.chunk(RS_samples, args.n_trials * 2, dim=0)
-w2_baseline = [compute_sliced_w2(chunks[2*i], chunks[2*i+1]) for i in range(args.n_trials)]
+w2_baseline = [compute_w2(chunks[2*i], chunks[2*i+1]) for i in range(args.n_trials)]
 rs_samples_list = list(chunks[::2])
 print(f"RS W2 baseline done: {time.time()-t:.2f}s", flush=True)
 
