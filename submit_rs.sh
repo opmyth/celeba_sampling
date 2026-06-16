@@ -24,7 +24,7 @@ cd ~/dissertation
 
 nvidia-smi
 
-python run_rs.py --n_chains 500 --n_trials 5 --output_path results_rs.pt
+python run_rs.py --n_chains 50 --n_trials 2 --output_path results_rs_test.pt
 
 echo "Finished: $(date -u)"
 

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=dissertation_sampling
+#SBATCH --job-name=test_clf
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
-#SBATCH --time=08:00:00
-#SBATCH --output=logs/ula-stylegan-%j.out
-#SBATCH --error=logs/ula-stylegan-%j.err
-#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia01,landonia02,landonia03,landonia05,landonia08,landonia23,landonia25
+#SBATCH --time=00:10:00
+#SBATCH --exclude=opencast,saxa
+#SBATCH --output=logs/test_clf-%j.out
+#SBATCH --error=logs/test_clf-%j.err
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
@@ -21,10 +21,6 @@ export LD_LIBRARY_PATH=/home/s2800722/venv/lib/python3.12/site-packages/torch/li
 
 cd ~/dissertation
 
-nvidia-smi
-
-python run_sampler.py --sampler ULA --n_chains 50 --n_steps 800 --n_trials 2 --dt 0.01 --batch_size 64 --rs_path results_rs_test.pt --output_path results_ula_test.pt
+python test_clf.py
 
 echo "Finished: $(date -u)"
-
-

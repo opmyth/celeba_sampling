@@ -4,8 +4,8 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --output=logs/ula-stylegan-%j.out
-#SBATCH --error=logs/ula-stylegan-%j.err
+#SBATCH --output=logs/smile-clf-%j.out
+#SBATCH --error=logs/smile-clf-%j.err
 #SBATCH --exclude=saxa,opencast,damnii[07-12],landonia01,landonia02,landonia03,landonia05,landonia08,landonia23,landonia25
 
 echo "Job ID: ${SLURM_JOB_ID}"
@@ -23,7 +23,11 @@ cd ~/dissertation
 
 nvidia-smi
 
-python run_sampler.py --sampler ULA --n_chains 50 --n_steps 800 --n_trials 2 --dt 0.01 --batch_size 64 --rs_path results_rs_test.pt --output_path results_ula_test.pt
+echo "Starting training smile classifier without augmentation"
+python train_classifier.py 31 smile
+
+echo "Starting training smile classifier with augmentation"
+python train_classifier.py 31 smile --augment
 
 echo "Finished: $(date -u)"
 
