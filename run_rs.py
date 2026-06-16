@@ -23,6 +23,8 @@ args = parser.parse_args()
 wandb.init(
     project="dissertation-stylegan-sampling",
     name=f"RS-chains{args.n_chains}-trials{args.n_trials}",
+    group=f"experiment_n{args.n_chains}_t{args.n_trials}",
+    job_type="RS",
     config=vars(args),
 )
 
