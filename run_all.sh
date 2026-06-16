@@ -3,8 +3,8 @@
 # Usage: bash run_all.sh
 set -e
 
-N_CHAINS=10
-N_TRIALS=1
+N_CHAINS=1000
+N_TRIALS=5
 N_STEPS=800
 DT=0.01
 SIGMA=0.5
