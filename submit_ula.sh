@@ -6,7 +6,7 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/ula-stylegan-%j.out
 #SBATCH --error=logs/ula-stylegan-%j.err
-#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia01,landonia02,landonia03,landonia05,landonia08,landonia23,landonia25
+#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia[01-03,05,08,23,25]
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
@@ -23,7 +23,7 @@ cd ~/dissertation
 
 nvidia-smi
 
-python run_sampler.py --sampler ULA --n_chains 50 --n_steps 800 --n_trials 2 --dt 0.01 --batch_size 64 --rs_path results_rs_test.pt --output_path results_ula_test.pt
+python run_sampler.py --sampler ULA --n_chains 300 --n_steps 800 --n_trials 5 --dt 0.01 --batch_size 64 --rs_path results_rs_test.pt --output_path results_ula_test.pt
 
 echo "Finished: $(date -u)"
 

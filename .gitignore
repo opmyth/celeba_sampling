@@ -10,3 +10,4 @@ data/
 submit.sh
 clf_checkpoints
 *.json
+*.sh

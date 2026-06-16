@@ -6,8 +6,7 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/rs-testing_w2-%j.out
 #SBATCH --error=logs/rs-testing_w2-%j.err
-#SBATCH --exclude=saxa
-#SBATCH --exclude=opencast
+#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia[01-03,05,08,23,25]
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
@@ -24,7 +23,7 @@ cd ~/dissertation
 
 nvidia-smi
 
-python run_rs.py --n_chains 50 --n_trials 2 --output_path results_rs_test.pt
+python run_rs.py --n_chains 300 --n_trials 5 --output_path results_rs_test.pt
 
 echo "Finished: $(date -u)"
 

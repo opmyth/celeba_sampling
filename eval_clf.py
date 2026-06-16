@@ -36,10 +36,20 @@ def evaluate(model, loader, attr, device):
 
 smile_clf = classifier()
 smile_clf.load_state_dict(torch.load('clf_checkpoints/smile_clf.pth', weights_only=False))
-print("Smile classifier:")
+print("Smile classifier (no aug):")
 evaluate(smile_clf, val_loader, attr=31, device=device)
+
+smile_clf_aug = classifier()
+smile_clf_aug.load_state_dict(torch.load('clf_checkpoints/smile_clf_aug.pth', weights_only=False))
+print("Smile classifier (aug):")
+evaluate(smile_clf_aug, val_loader, attr=31, device=device)
 
 male_clf = classifier()
 male_clf.load_state_dict(torch.load('clf_checkpoints/male_clf.pth', weights_only=False))
-print("Male classifier:")
+print("Male classifier (no aug):")
 evaluate(male_clf, val_loader, attr=20, device=device)
+
+male_clf_aug = classifier()
+male_clf_aug.load_state_dict(torch.load('clf_checkpoints/male_clf_aug.pth', weights_only=False))
+print("Male classifier (aug):")
+evaluate(male_clf_aug, val_loader, attr=20, device=device)

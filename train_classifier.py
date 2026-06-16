@@ -18,7 +18,7 @@ parser.add_argument('--augment', action='store_true')
 parser.add_argument('--subset_size', type=int, default=20000)
 args = parser.parse_args()
 
-def train_classifier(model, train_loader, attr, device, epochs=10, lr=1e-3):
+def train_classifier(model, train_loader, attr, device, epochs=5, lr=1e-3):
     model.to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
 

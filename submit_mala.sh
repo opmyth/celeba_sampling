@@ -6,8 +6,7 @@
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/mala-stylegan-%j.out
 #SBATCH --error=logs/mala-stylegan-%j.err
-#SBATCH --exclude=saxa
-#SBATCH --exclude=opencast
+#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia[01-03,05,08,23,25]
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
