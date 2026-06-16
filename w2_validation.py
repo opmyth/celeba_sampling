@@ -8,6 +8,7 @@ from models import classifier, StyleGAN2Wrapper
 
 import pickle
 import torch
+torch.manual_seed(42)
 
 print("device....")
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -44,3 +45,14 @@ print(f"The exact W2: {rs_w2}")
 
 for k, v in w2_slices.items():
     print(f"# slices: {k} ==> sliced_w2: {v}")
+
+
+import json
+
+results = {
+    'exact_w2': rs_w2,
+    'sliced_w2': w2_slices
+}
+
+with open('w2_validation_results.json', 'w') as f:
+    json.dump(results, f, indent=2)

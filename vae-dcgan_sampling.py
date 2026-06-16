@@ -1,16 +1,14 @@
-import sys
-sys.path.insert(0, '/home/s2800722/dissertation/stylegan2-ada-pytorch')
-
 import argparse
 import torch
 import numpy as np
 import torch.nn.functional as F
 import time
-import pickle
+
 
 from tqdm import tqdm
-from models import classifier, StyleGAN2Wrapper
-from samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba, rejection_sampling
+from huggingface_hub import hf_hub_download
+from models import rator, CelebaVAE, classifier
+rom samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba, rejection_sampling
 from utils import compute_sliced_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 parser = argparse.ArgumentParser()
@@ -26,19 +24,39 @@ args = parser.parse_args()
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device {device}')
 
-smile_clf = classifier().to(device)
-smile_clf.load_state_dict(torch.load('clf_checkpoints/smile_clf.pth', weights_only=False))
+
+path_dcgan = hf_hub_download(
+        repo_id="huggan/dcgan-celeba-faces", 
+        filename="pytorch_model.bin"
+)
+path_vae = hf_hub_download(
+        repo_id='hussamalafandi/VAE-CelebA',
+        filename='vae_celeba_latent_200_epochs_10_batch_64_subset_80000.pth'
+)
+
+state_dict_dcgan = torch.load(path_dcgan, map_location=device, weights_only=False)
+dcgan = CelebAGenerator()
+dcgan.load_state_dict(state_dict_dcgan)
+dcgan.to(device)
+dcgan.eval()
+
+state_dict_vae = torch.load(path_vae, map_location=device, weights_only=False)
+vae = CelebaVAE()
+vae.load_state_dict(state_dict_vae)
+vae.to(device)
+vae.eval()
+
+smile_clf = classifier()
+smile_clf.load_state_dict(torch.load('checkpoints/smile_clf.pth', weights_only=False))
+smile_clf.to(device)
 smile_clf.eval()
 
-male_clf = classifier().to(device)
-male_clf.load_state_dict(torch.load('clf_checkpoints/male_clf.pth', weights_only=False))
+male_clf = classifier()
+male_clf.load_state_dict(torch.load('checkpoints/male_clf.pth', weights_only=False))
+male_clf.to(device)
 male_clf.eval()
 
-with open('stylegan2_checkpoints/celebahq-res256-mirror-paper256-kimg100000-ada-target0.5.pkl', 'rb') as f:
-    G = pickle.load(f)['G_ema'].to(device)
-    
-stylegan = StyleGAN2Wrapper(G).to(device)
-stylegan.eval()
+
 
 def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_trials=10, seed=321):
     torch.manual_seed(seed)
@@ -113,19 +131,32 @@ def run_trials(model, clf, male_clf, dt, sigma, n_chains, n_steps, device, n_tri
     return w2_values, w2_baseline, samples, avg_log_reward, diversity, diversity_trace_cov, male_fraction
 
 start = time.time()
-stylegan_w2_values, stylegan_w2_baseline, stylegan_samples, stylegan_avg_log_reward, stylegan_diversity, stylegan_diversity_trace_cov, stylegan_male_fraction = run_trials(
-    stylegan, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
+vae_w2_values, vae_w2_baseline, vae_samples, vae_avg_log_reward, vae_diversity, vae_diversity_trace_cov, vae_male_fraction = run_trials(
+    vae, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
+)
+
+dcgan_w2_values, dcgan_w2_baseline, dcgan_samples, dcgan_avg_log_reward, dcgan_diversity, dcgan_diversity_trace_cov, dcgan_male_fraction = run_trials(
+    dcgan, smile_clf, male_clf, dt=args.dt, sigma=args.sigma, n_chains=args.n_chains, n_steps=args.n_steps, n_trials=args.n_trials, device=device
 )
 print(f"Total time: {time.time() - start:.2f}s")
 torch.save({
-    'stylegan': {
-        'w2_values': stylegan_w2_values,
-        'w2_baseline': stylegan_w2_baseline,
-        'samples': stylegan_samples,
-        'avg_log_reward': stylegan_avg_log_reward,
-        'diversity': stylegan_diversity,
-        'diversity_trace_cov': stylegan_diversity_trace_cov,
-        'male_fraction': stylegan_male_fraction,
+    'vae': {
+        'w2_values': vae_w2_values,
+        'w2_baseline': vae_w2_baseline,
+        'samples': vae_samples,
+        'avg_log_reward': vae_avg_log_reward,
+        'diversity': vae_diversity,
+        'diversity_trace_cov': vae_diversity_trace_cov,
+        'male_fraction': vae_male_fraction,
+    },
+    'dcgan': {
+        'w2_values': dcgan_w2_values,
+        'w2_baseline': dcgan_w2_baseline,
+        'samples': dcgan_samples,
+        'avg_log_reward': dcgan_avg_log_reward,
+        'diversity': dcgan_diversity,
+        'diversity_trace_cov': dcgan_diversity_trace_cov,
+        'male_fraction': dcgan_male_fraction,
     }
 }, args.output_path)
 

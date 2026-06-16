@@ -37,7 +37,7 @@ def compute_w2(samples_1, samples_2):
     w2_squared = ot.emd2(a, b, M)
     return np.sqrt(w2_squared)
 
-def compute_sliced_w2(samples_1, samples_2, n_projections=100):
+def compute_sliced_w2(samples_1, samples_2, n_projections=200):
     projections = torch.randn(n_projections, samples_1.size(1)).to(samples_1.device)
     projections = projections / torch.norm(projections, dim=1, keepdim=True)
     
