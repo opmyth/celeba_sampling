@@ -1,5 +1,5 @@
-import sys
-sys.path.insert(0, '/home/s2800722/dissertation/stylegan2-ada-pytorch')
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stylegan2-ada-pytorch'))
 
 from tqdm import tqdm
 
