@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Full end-to-end pipeline: RS → ULA → MALA → G_MH → merge
 # Usage: bash run_all.sh
-set -e
+set -eo pipefail
 
 N_CHAINS=1000
 N_TRIALS=5

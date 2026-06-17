@@ -93,10 +93,17 @@ class classifier(nn.Module):
         return self.fc(x) #(B, 1)        
 
 class StyleGAN2Wrapper(nn.Module):
-    def __init__(self, G):
+    def __init__(self, G, max_batch_size=64):
         super().__init__()
         self.G = G
         self.latent_dim = G.z_dim  # 512
+        self.max_batch_size = max_batch_size
 
     def forward(self, z):
-        return self.G(z, None)
+        if z.size(0) <= self.max_batch_size:
+            return self.G(z, None)
+
+        outputs = []
+        for chunk in torch.split(z, self.max_batch_size, dim=0):
+            outputs.append(self.G(chunk, None))
+        return torch.cat(outputs, dim=0)
