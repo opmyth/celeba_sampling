@@ -6,7 +6,7 @@
 #SBATCH --time=00:30:00
 #SBATCH --output=logs/mala_bench-%j.out
 #SBATCH --error=logs/mala_bench-%j.err
-#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia01,landonia02,landonia03,landonia05,landonia08,landonia23,landonia25
+#SBATCH --exclude=saxa,opencast,landonia01,landonia02
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"

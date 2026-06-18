@@ -26,7 +26,7 @@ print('Done.', flush=True)
 
 torch.manual_seed(42)
 
-N_CHAINS  = 64
+N_CHAINS  = 32  # 2080 Ti safe (11GB VRAM); scale projection accordingly
 N_WARMUP  = 5   # steps to trigger compilation + warm up GPU
 N_STEPS   = 25  # timed steps
 DT        = 0.5
