@@ -25,6 +25,6 @@ cd ~/celeba_sampling
 
 nvidia-smi
 
-bash bench_all_samplers.sh
+bash bench_chunk_size.sh
 
 echo "Finished: $(date -u)"
