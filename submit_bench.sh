@@ -14,10 +14,8 @@ echo "Started: $(date -u)"
 
 module load cuda/12.8.0
 export CUDA_HOME=/opt/cuda-12.8.0
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-}"
-. /home/htang2/toolchain-20251006/toolchain.rc
 . /home/s2800722/venv/bin/activate
-export LD_LIBRARY_PATH=/home/s2800722/venv/lib/python3.12/site-packages/torch/lib:/home/s2800722/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/home/s2800722/venv/lib/python3.12/site-packages/torch/lib:/home/s2800722/venv/lib/python3.12/site-packages/nvidia/cuda_runtime/lib:/opt/cuda-12.8.0/lib64:${LD_LIBRARY_PATH:-}
 
 export TORCH_EXTENSIONS_DIR=/tmp/torch_ext_${SLURM_JOB_ID}
 
