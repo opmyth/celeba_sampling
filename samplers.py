@@ -3,7 +3,7 @@ import gc
 import numpy as np
 from tqdm import tqdm
 
-from utils import log_posterior_celeba, grad_log_posterior_celeba
+from utils import log_posterior_celeba, grad_log_posterior_celeba, grad_and_log_posterior_celeba
 
 def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device):
     latent_dim = model.latent_dim
@@ -26,25 +26,25 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
     latent_dim = model.latent_dim
     z = torch.randn(n_chains, latent_dim).to(device)
     samples = []
-    z_grad = grad_log_posterior_celeba(z, model, clf)
-    
+    z_grad, log_p_z = grad_and_log_posterior_celeba(z, model, clf)
+
     for step in tqdm(range(n_steps), desc="MALA"):
     # for step in range(n_steps):
         samples.append(z.detach().clone())
-        
+
         z_prop = z + dt * z_grad + np.sqrt(2*dt) * torch.randn(n_chains, latent_dim).to(device)
-        z_prop_grad = grad_log_posterior_celeba(z_prop, model, clf)
-        
+        z_prop_grad, log_p_prop = grad_and_log_posterior_celeba(z_prop, model, clf)
+
         log_q_fwd = -torch.sum((z_prop - (z + dt * z_grad))**2, dim=1) / (4*dt)
         log_q_bwd = -torch.sum((z - (z_prop + dt * z_prop_grad))**2, dim=1) / (4*dt)
-        
+
         log_alpha = torch.clamp(
-            log_posterior_celeba(z_prop, model, clf) + log_q_bwd - 
-            log_posterior_celeba(z, model, clf) - log_q_fwd, max=0)
-        
+            log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
+
         accept = torch.log(torch.rand(n_chains).to(device)) <= log_alpha
         z = torch.where(accept.unsqueeze(1), z_prop, z)
         z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
+        log_p_z = torch.where(accept, log_p_prop, log_p_z)
     
         if step % 10 == 0:
             gc.collect()

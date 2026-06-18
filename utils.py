@@ -25,6 +25,14 @@ def grad_log_posterior_celeba(z, model, clf):
     posterior.backward()
     return z.grad.clone()
 
+def grad_and_log_posterior_celeba(z, model, clf):
+    z = z.detach().requires_grad_(True)
+    imgs = model(z)
+    logits = clf(imgs).squeeze()
+    log_p = -0.5 * torch.sum(z**2, dim=1) + F.logsigmoid(logits)
+    log_p.sum().backward()
+    return z.grad.clone(), log_p.detach()
+
 def compute_w2(samples_1, samples_2):
     samples_1_np = samples_1.detach().cpu().numpy()
     samples_2_np = samples_2.detach().cpu().numpy()
