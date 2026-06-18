@@ -31,10 +31,9 @@ def grad_and_log_posterior_celeba(z, model, clf):
     chunk_size = model.max_batch_size  # 64: backward() called per chunk so activations freed immediately
     for start in range(0, z.size(0), chunk_size):
         z_chunk = z[start:start + chunk_size]
-        with torch.autocast('cuda', dtype=torch.float16):
-            imgs = model.G(z_chunk, None)
-            logits = clf(imgs).squeeze()
-        log_p_chunk = -0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits.float())
+        imgs = model.G(z_chunk, None)
+        logits = clf(imgs).squeeze()
+        log_p_chunk = -0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits)
         log_p_chunk.sum().backward()
         log_p_list.append(log_p_chunk.detach())
     return z.grad.clone(), torch.cat(log_p_list)
