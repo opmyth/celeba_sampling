@@ -14,11 +14,17 @@ from model_loader import load_models
 
 def grad_and_log_posterior(z, model, clf):
     z = z.detach().requires_grad_(True)
-    imgs = model(z)
-    logits = clf(imgs).squeeze()
-    log_p = -0.5 * torch.sum(z**2, dim=1) + F.logsigmoid(logits)
-    log_p.sum().backward()
-    return z.grad.clone(), log_p.detach()
+    log_p_list = []
+    chunk_size = model.max_batch_size  # 64; backward per chunk so activations freed immediately
+    for start in range(0, z.size(0), chunk_size):
+        z_chunk = z[start:start + chunk_size]
+        with torch.autocast('cuda', dtype=torch.float16):
+            imgs = model.G(z_chunk, None)
+            logits = clf(imgs).squeeze()
+        log_p_chunk = -0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits.float())
+        log_p_chunk.sum().backward()
+        log_p_list.append(log_p_chunk.detach())
+    return z.grad.clone(), torch.cat(log_p_list)
 
 def run_bench(model, clf, batch_size, n_warmup, n_steps, dt, device):
     # max_batch_size stays at 64: StyleGAN2Wrapper chunks internally, autograd flows correctly
