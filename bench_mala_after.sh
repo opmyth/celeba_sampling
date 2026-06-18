@@ -1,5 +1,5 @@
 #!/bin/bash
-# Benchmarks MALA with the NEW logic (1 forward+backward per step, log_p_z cached).
+# Benchmarks MALA with the NEW logic across multiple batch sizes.
 # Self-contained: does not depend on the current state of samplers.py.
 cd "$(dirname "$0")"
 
@@ -20,6 +20,40 @@ def grad_and_log_posterior(z, model, clf):
     log_p.sum().backward()
     return z.grad.clone(), log_p.detach()
 
+def run_bench(model, clf, batch_size, n_warmup, n_steps, dt, device):
+    model.max_batch_size = batch_size
+    z = torch.randn(batch_size, model.latent_dim).to(device)
+    z_grad, log_p_z = grad_and_log_posterior(z, model, clf)
+
+    for _ in range(n_warmup):
+        z_prop = z + dt * z_grad + (2*dt)**0.5 * torch.randn_like(z)
+        z_prop_grad, log_p_prop = grad_and_log_posterior(z_prop, model, clf)
+        log_q_fwd = -torch.sum((z_prop - (z + dt*z_grad))**2, dim=1) / (4*dt)
+        log_q_bwd = -torch.sum((z - (z_prop + dt*z_prop_grad))**2, dim=1) / (4*dt)
+        log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
+        accept = torch.log(torch.rand(batch_size).to(device)) <= log_alpha
+        z = torch.where(accept.unsqueeze(1), z_prop, z)
+        z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
+        log_p_z = torch.where(accept, log_p_prop, log_p_z)
+
+    if device.type == 'cuda':
+        torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    for _ in range(n_steps):
+        z_prop = z + dt * z_grad + (2*dt)**0.5 * torch.randn_like(z)
+        z_prop_grad, log_p_prop = grad_and_log_posterior(z_prop, model, clf)
+        log_q_fwd = -torch.sum((z_prop - (z + dt*z_grad))**2, dim=1) / (4*dt)
+        log_q_bwd = -torch.sum((z - (z_prop + dt*z_prop_grad))**2, dim=1) / (4*dt)
+        log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
+        accept = torch.log(torch.rand(batch_size).to(device)) <= log_alpha
+        z = torch.where(accept.unsqueeze(1), z_prop, z)
+        z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
+        log_p_z = torch.where(accept, log_p_prop, log_p_z)
+    if device.type == 'cuda':
+        torch.cuda.synchronize()
+    elapsed = time.perf_counter() - t0
+    return elapsed
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
@@ -30,44 +64,19 @@ model.G = torch.compile(model.G)
 print('Done.', flush=True)
 torch.manual_seed(42)
 
-N_CHAINS, N_WARMUP, N_STEPS, DT = 64, 10, 25, 0.5  # extra warmup to absorb compilation
-z = torch.randn(N_CHAINS, model.latent_dim).to(device)
-z_grad, log_p_z = grad_and_log_posterior(z, model, clf)
+N_WARMUP, N_STEPS, DT = 10, 25, 0.5
 
-print(f'Warming up ({N_WARMUP} steps)...', flush=True)
-for _ in range(N_WARMUP):
-    z_prop = z + DT * z_grad + (2*DT)**0.5 * torch.randn_like(z)
-    z_prop_grad, log_p_prop = grad_and_log_posterior(z_prop, model, clf)
-    log_q_fwd = -torch.sum((z_prop - (z + DT*z_grad))**2, dim=1) / (4*DT)
-    log_q_bwd = -torch.sum((z - (z_prop + DT*z_prop_grad))**2, dim=1) / (4*DT)
-    log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
-    accept = torch.log(torch.rand(N_CHAINS).to(device)) <= log_alpha
-    z = torch.where(accept.unsqueeze(1), z_prop, z)
-    z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
-    log_p_z = torch.where(accept, log_p_prop, log_p_z)
+print(f'\n{"batch":>8}  {"ms/step":>10}  {"projected":>12}', flush=True)
+print('-' * 36)
 
-if device.type == 'cuda':
-    torch.cuda.synchronize()
-print(f'Timing {N_STEPS} steps...', flush=True)
-t0 = time.perf_counter()
-for _ in range(N_STEPS):
-    z_prop = z + DT * z_grad + (2*DT)**0.5 * torch.randn_like(z)
-    z_prop_grad, log_p_prop = grad_and_log_posterior(z_prop, model, clf)
-    log_q_fwd = -torch.sum((z_prop - (z + DT*z_grad))**2, dim=1) / (4*DT)
-    log_q_bwd = -torch.sum((z - (z_prop + DT*z_prop_grad))**2, dim=1) / (4*DT)
-    log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
-    accept = torch.log(torch.rand(N_CHAINS).to(device)) <= log_alpha
-    z = torch.where(accept.unsqueeze(1), z_prop, z)
-    z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
-    log_p_z = torch.where(accept, log_p_prop, log_p_z)
-if device.type == 'cuda':
-    torch.cuda.synchronize()
-elapsed = time.perf_counter() - t0
-
-per_step_ms = elapsed / N_STEPS * 1000
-projected_s = (elapsed / N_STEPS) * 800 * (1000 * 5 / N_CHAINS)
-print(f'\n[AFTER FIX] {N_CHAINS} chains, {N_STEPS} steps')
-print(f'  Total:        {elapsed:.2f}s')
-print(f'  Per step:     {per_step_ms:.1f}ms')
-print(f'  Projected full run (n_chains=1000, n_trials=5, n_steps=800, batch={N_CHAINS}): {projected_s/3600:.2f}h')
+for batch_size in [64, 128, 256, 512]:
+    try:
+        torch.cuda.empty_cache()
+        elapsed = run_bench(model, clf, batch_size, N_WARMUP, N_STEPS, DT, device)
+        per_step_ms = elapsed / N_STEPS * 1000
+        projected_h = (elapsed / N_STEPS) * 800 * (1000 * 5 / batch_size) / 3600
+        print(f'{batch_size:>8}  {per_step_ms:>9.1f}ms  {projected_h:>10.2f}h', flush=True)
+    except torch.cuda.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        print(f'{batch_size:>8}  {"OOM":>10}  {"---":>12}', flush=True)
 EOF
