@@ -26,6 +26,10 @@ parser.add_argument('--n_trials', type=int, default=10)
 parser.add_argument('--dt', type=float, default=0.5)
 parser.add_argument('--sigma', type=float, default=0.5)
 parser.add_argument('--batch_size', type=int, default=64)
+parser.add_argument('--burnin', type=int, default=0,
+                    help='Steps to discard before collecting samples (thinning mode only)')
+parser.add_argument('--thin_k', type=int, default=1,
+                    help='Keep 1 every thin_k post-burnin steps (thinning mode only)')
 parser.add_argument('--seed', type=int, default=321)
 parser.add_argument('--rs_path', type=str, default='results_rs.pt')
 parser.add_argument('--output_path', type=str, default='results_sampler.pt')
@@ -64,12 +68,25 @@ def run_sampler_minibatched(sampler_fn, model, clf, total_chains, n_steps, param
         results.append(out)
     return torch.cat(results, dim=0)
 
+def compute_total_steps(target_samples, burnin, thin_k):
+    total = burnin + target_samples * thin_k
+    print(f"Thinning: burnin={burnin}, thin_k={thin_k}, target_samples={target_samples} → total_steps={total}", flush=True)
+    return total
+
 t = time.time()
-all_samples = run_sampler_minibatched(sampler_fn, stylegan, smile_clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
+if args.burnin == 0 and args.thin_k == 1:
+    all_samples = run_sampler_minibatched(sampler_fn, stylegan, smile_clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
+    samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
+else:
+    n_steps_total = compute_total_steps(args.n_chains, args.burnin, args.thin_k)
+    samples_list = []
+    for trial in range(args.n_trials):
+        chain = sampler_fn(stylegan, smile_clf, 1, n_steps_total, param, device=device,
+                           burnin=args.burnin, thin_k=args.thin_k)
+        samples_list.append(torch.cat(chain, dim=0))
 print(f"{args.sampler} done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
-samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
 w2_values = [compute_w2(samples_list[i], rs_samples_list[i]) for i in range(args.n_trials)]
 print(f"{args.sampler} W2 done: {time.time()-t:.2f}s", flush=True)
 

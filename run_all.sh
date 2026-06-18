@@ -9,6 +9,8 @@ N_STEPS=800
 DT=0.01
 SIGMA=0.5
 BATCH_SIZE=64
+BURNIN=0
+THIN_K=1
 
 mkdir -p logs
 
@@ -27,6 +29,8 @@ python run_sampler.py \
     --n_steps "$N_STEPS" \
     --dt "$DT" \
     --batch_size "$BATCH_SIZE" \
+    --burnin "$BURNIN" \
+    --thin_k "$THIN_K" \
     --rs_path results_rs.pt \
     --output_path results_ula.pt \
     2>&1 | tee logs/ula.log
@@ -39,6 +43,8 @@ python run_sampler.py \
     --n_steps "$N_STEPS" \
     --dt "$DT" \
     --batch_size "$BATCH_SIZE" \
+    --burnin "$BURNIN" \
+    --thin_k "$THIN_K" \
     --rs_path results_rs.pt \
     --output_path results_mala.pt \
     2>&1 | tee logs/mala.log
@@ -51,6 +57,8 @@ python run_sampler.py \
     --n_steps "$N_STEPS" \
     --sigma "$SIGMA" \
     --batch_size "$BATCH_SIZE" \
+    --burnin "$BURNIN" \
+    --thin_k "$THIN_K" \
     --rs_path results_rs.pt \
     --output_path results_gmh.pt \
     2>&1 | tee logs/gmh.log

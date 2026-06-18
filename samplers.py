@@ -4,30 +4,30 @@ from tqdm import tqdm
 
 from utils import log_posterior_celeba, grad_log_posterior_celeba, grad_and_log_posterior_celeba
 
-def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device):
+def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1):
     latent_dim = model.latent_dim
     z = torch.randn(n_chains, latent_dim, device=device)
     samples = []
     noise_scale = np.sqrt(2*dt)
 
     for step in tqdm(range(n_steps), desc="ULA"):
-    # for step in range(n_steps):
-        samples.append(z.detach().clone())
+        if step >= burnin and (step - burnin) % thin_k == 0:
+            samples.append(z.detach().clone())
 
         z = z + dt * grad_log_posterior_celeba(z, model, clf) + noise_scale * torch.randn(n_chains, latent_dim, device=device)
 
     return samples
 
-def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
+def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1):
     latent_dim = model.latent_dim
     z = torch.randn(n_chains, latent_dim, device=device)
     samples = []
     noise_scale = np.sqrt(2*dt)
     z_grad, log_p_z = grad_and_log_posterior_celeba(z, model, clf)
 
-    for _ in tqdm(range(n_steps), desc="MALA"):
-    # for step in range(n_steps):
-        samples.append(z.detach().clone())
+    for step in tqdm(range(n_steps), desc="MALA"):
+        if step >= burnin and (step - burnin) % thin_k == 0:
+            samples.append(z.detach().clone())
 
         z_prop = z + dt * z_grad + noise_scale * torch.randn(n_chains, latent_dim, device=device)
         z_prop_grad, log_p_prop = grad_and_log_posterior_celeba(z_prop, model, clf)
@@ -45,15 +45,15 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
 
     return samples
 
-def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device):
+def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device, burnin=0, thin_k=1):
     latent_dim = model.latent_dim
     z = torch.randn(n_chains, latent_dim, device=device)
     log_p_z = log_posterior_celeba(z, model, clf)
     samples = []
 
     for step in tqdm(range(n_steps), desc="G_MH"):
-    # for step in range(n_steps):
-        samples.append(z.detach().clone())
+        if step >= burnin and (step - burnin) % thin_k == 0:
+            samples.append(z.detach().clone())
 
         z_prop = z + sigma * torch.randn_like(z)
         log_p_prop = log_posterior_celeba(z_prop, model, clf)
@@ -63,7 +63,7 @@ def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device):
         z = torch.where(accept.unsqueeze(1), z_prop, z)
         log_p_z = torch.where(accept, log_p_prop, log_p_z)
 
-    return samples[int(0.2*n_steps):]
+    return samples
 
 def rejection_sampling(model, clf, n_chains, device):
     total_accepted, total_proposed = 0, 0
