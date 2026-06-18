@@ -4,7 +4,7 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:h200_3g.71gb:1
 #SBATCH --nodelist=saxa
-#SBATCH --time=01:30:00
+#SBATCH --time=03:00:00
 #SBATCH --output=logs/sweep-%j.out
 #SBATCH --error=logs/sweep-%j.err
 
@@ -42,9 +42,9 @@ model.G = torch.compile(model.G)
 print('Done.', flush=True)
 torch.manual_seed(42)
 
-N_CHAINS  = 32   # enough for stable acceptance rate estimate
+N_CHAINS  = 100
 N_WARMUP  = 5
-N_STEPS   = 200  # enough to see log_p stabilise
+N_STEPS   = 300
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
