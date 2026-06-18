@@ -25,6 +25,6 @@ cd ~/celeba_sampling
 
 nvidia-smi
 
-bash bench_mala_after.sh
+bash bench_production.sh
 
 echo "Finished: $(date -u)"
