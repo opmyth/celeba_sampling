@@ -2,11 +2,11 @@
 #SBATCH --job-name=mala_bench
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:h200:1
+#SBATCH --nodelist=saxa
 #SBATCH --time=01:30:00
 #SBATCH --output=logs/mala_bench-%j.out
 #SBATCH --error=logs/mala_bench-%j.err
-#SBATCH --exclude=saxa,opencast,damnii[07-12],landonia01,landonia02,landonia03,landonia05,landonia08,landonia23,landonia25
 
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
