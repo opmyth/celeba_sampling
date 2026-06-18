@@ -7,10 +7,13 @@
 # license agreement from NVIDIA CORPORATION is strictly prohibited.
 
 import os
+import sys
 import glob
 import torch
 import torch.utils.cpp_extension
 import importlib
+import importlib.util
+import sysconfig
 import hashlib
 import shutil
 from pathlib import Path
@@ -42,6 +45,22 @@ def _find_compiler_bindir():
 # Main entry point for compiling and loading C++/CUDA plugins.
 
 _cached_plugins = dict()
+
+def _import_from_so(module_name, build_dir):
+    """Load a compiled .so directly, working around the Python 3.12 ABI suffix mismatch
+    where cpp_extension.load() looks for module.cpython-312-*.so but builds module.so."""
+    ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')  # e.g. .cpython-312-x86_64-linux-gnu.so
+    so_plain = os.path.join(build_dir, module_name + '.so')
+    if not os.path.exists(so_plain):
+        raise ModuleNotFoundError(f'No module named {module_name!r}: compiled .so not found at {so_plain}')
+    so_abi = os.path.join(build_dir, module_name + ext_suffix)
+    if not os.path.exists(so_abi):
+        os.symlink(so_plain, so_abi)
+    spec = importlib.util.spec_from_file_location(module_name, so_abi)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 def get_plugin(module_name, sources, **build_kwargs):
     assert verbosity in ['none', 'brief', 'full']
@@ -104,10 +123,17 @@ def get_plugin(module_name, sources, **build_kwargs):
                     # wait until done and continue.
                     baton.wait()
             digest_sources = [os.path.join(digest_build_dir, os.path.basename(x)) for x in sources]
-            module = torch.utils.cpp_extension.load(name=module_name, build_directory=build_dir,
-                verbose=verbose_build, sources=digest_sources, **build_kwargs)
+            try:
+                module = torch.utils.cpp_extension.load(name=module_name, build_directory=build_dir,
+                    verbose=verbose_build, sources=digest_sources, **build_kwargs)
+            except ModuleNotFoundError:
+                module = _import_from_so(module_name, build_dir)
         else:
-            module = torch.utils.cpp_extension.load(name=module_name, verbose=verbose_build, sources=sources, **build_kwargs)
+            build_dir = torch.utils.cpp_extension._get_build_directory(module_name, verbose=verbose_build) # pylint: disable=protected-access
+            try:
+                module = torch.utils.cpp_extension.load(name=module_name, verbose=verbose_build, sources=sources, **build_kwargs)
+            except ModuleNotFoundError:
+                module = _import_from_so(module_name, build_dir)
 
     except:
         if verbosity == 'brief':
