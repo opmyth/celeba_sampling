@@ -21,7 +21,7 @@ def grad_and_log_posterior(z, model, clf):
     return z.grad.clone(), log_p.detach()
 
 def run_bench(model, clf, batch_size, n_warmup, n_steps, dt, device):
-    model.max_batch_size = batch_size
+    # max_batch_size stays at 64: StyleGAN2Wrapper chunks internally, autograd flows correctly
     z = torch.randn(batch_size, model.latent_dim).to(device)
     z_grad, log_p_z = grad_and_log_posterior(z, model, clf)
 
@@ -69,7 +69,7 @@ N_WARMUP, N_STEPS, DT = 10, 25, 0.5
 print(f'\n{"batch":>8}  {"ms/step":>10}  {"projected":>12}', flush=True)
 print('-' * 36)
 
-for batch_size in [64, 128, 256, 512]:
+for batch_size in [64, 128, 256, 512, 1000]:
     try:
         torch.cuda.empty_cache()
         elapsed = run_bench(model, clf, batch_size, N_WARMUP, N_STEPS, DT, device)

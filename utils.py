@@ -27,9 +27,10 @@ def grad_log_posterior_celeba(z, model, clf):
 
 def grad_and_log_posterior_celeba(z, model, clf):
     z = z.detach().requires_grad_(True)
-    imgs = model(z)
-    logits = clf(imgs).squeeze()
-    log_p = -0.5 * torch.sum(z**2, dim=1) + F.logsigmoid(logits)
+    with torch.autocast('cuda', dtype=torch.float16):
+        imgs = model(z)
+        logits = clf(imgs).squeeze()
+    log_p = -0.5 * torch.sum(z**2, dim=1) + F.logsigmoid(logits.float())
     log_p.sum().backward()
     return z.grad.clone(), log_p.detach()
 
