@@ -1,5 +1,4 @@
 import torch
-import gc
 import numpy as np
 from tqdm import tqdm
 
@@ -15,10 +14,6 @@ def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device):
         samples.append(z.detach().clone())
 
         z = z + dt * grad_log_posterior_celeba(z, model, clf) + np.sqrt(2*dt) * torch.randn(n_chains, latent_dim).to(device)
-        
-        if step % 10 == 0:
-            gc.collect()
-            torch.cuda.empty_cache()
 
     return samples
 
@@ -28,7 +23,7 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
     samples = []
     z_grad, log_p_z = grad_and_log_posterior_celeba(z, model, clf)
 
-    for step in tqdm(range(n_steps), desc="MALA"):
+    for _ in tqdm(range(n_steps), desc="MALA"):
     # for step in range(n_steps):
         samples.append(z.detach().clone())
 
@@ -45,10 +40,6 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device):
         z = torch.where(accept.unsqueeze(1), z_prop, z)
         z_grad = torch.where(accept.unsqueeze(1), z_prop_grad, z_grad)
         log_p_z = torch.where(accept, log_p_prop, log_p_z)
-    
-        if step % 10 == 0:
-            gc.collect()
-            torch.cuda.empty_cache()
 
     return samples
 
@@ -69,10 +60,6 @@ def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device):
         accept = torch.log(torch.rand(n_chains).to(device)) <= log_alpha
         z = torch.where(accept.unsqueeze(1), z_prop, z)
         log_p_z = torch.where(accept, log_p_prop, log_p_z)
-        
-        if step % 10 == 0:
-            gc.collect()
-            torch.cuda.empty_cache()
 
     return samples[int(0.2*n_steps):]
 

@@ -26,5 +26,8 @@ def load_models(device):
 
     stylegan = StyleGAN2Wrapper(G).to(device)
     stylegan.eval()
+    stylegan.requires_grad_(False)
+    smile_clf.requires_grad_(False)
+    male_clf.requires_grad_(False)
 
     return stylegan, smile_clf, male_clf
