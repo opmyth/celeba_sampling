@@ -10,19 +10,25 @@ from scipy.stats import ttest_rel
 
 
 def log_posterior_celeba(z, model, clf):
-    model.eval(); clf.eval()
+    chunk_size = model.max_batch_size
+    log_p_list = []
     with torch.no_grad():
-        imgs = model(z) #imgs.shape (B, 3, 64, 64)
-        logits = clf(imgs).squeeze() #logits shape(B, )
-    return -0.5 * torch.sum(z**2, dim=1) + F.logsigmoid(logits)
+        for start in range(0, z.size(0), chunk_size):
+            z_chunk = z[start:start + chunk_size]
+            imgs = model.G(z_chunk, None)
+            logits = clf(imgs).squeeze()
+            log_p_list.append(-0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits))
+    return torch.cat(log_p_list)
 
 def grad_log_posterior_celeba(z, model, clf):
     z = z.detach().requires_grad_(True)
-    imgs = model(z)
-    logits = clf(imgs).squeeze()
-    log_probs_smiling = F.logsigmoid(logits)
-    posterior = (-0.5 * torch.sum(z**2, dim=1) + log_probs_smiling).sum()
-    posterior.backward()
+    chunk_size = model.max_batch_size
+    for start in range(0, z.size(0), chunk_size):
+        z_chunk = z[start:start + chunk_size]
+        imgs = model.G(z_chunk, None)
+        logits = clf(imgs).squeeze()
+        posterior_chunk = (-0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits)).sum()
+        posterior_chunk.backward()
     return z.grad.clone()
 
 def grad_and_log_posterior_celeba(z, model, clf):
