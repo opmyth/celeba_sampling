@@ -43,6 +43,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device {device}')
 
 stylegan, smile_clf, male_clf = load_models(device)
+print('Compiling models...', flush=True)
+smile_clf = torch.compile(smile_clf)
+male_clf = torch.compile(male_clf)
+stylegan.G = torch.compile(stylegan.G)
+print('Done.', flush=True)
 torch.manual_seed(args.seed)
 
 rs_data = torch.load(args.rs_path, weights_only=False)
@@ -57,8 +62,6 @@ def run_sampler_minibatched(sampler_fn, model, clf, total_chains, n_steps, param
         size = min(batch_size, total_chains - start)
         out = sampler_fn(model, clf, size, n_steps, param, device=device)[-1]
         results.append(out)
-        del out
-        torch.cuda.empty_cache()
     return torch.cat(results, dim=0)
 
 t = time.time()
