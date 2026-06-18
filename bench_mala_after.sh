@@ -24,9 +24,13 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
 model, clf, _ = load_models(device)
+print('Compiling models...', flush=True)
+clf = torch.compile(clf)
+model.G = torch.compile(model.G)
+print('Done.', flush=True)
 torch.manual_seed(42)
 
-N_CHAINS, N_WARMUP, N_STEPS, DT = 64, 5, 25, 0.5
+N_CHAINS, N_WARMUP, N_STEPS, DT = 64, 10, 25, 0.5  # extra warmup to absorb compilation
 z = torch.randn(N_CHAINS, model.latent_dim).to(device)
 z_grad, log_p_z = grad_and_log_posterior(z, model, clf)
 
