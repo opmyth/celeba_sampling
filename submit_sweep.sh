@@ -68,10 +68,9 @@ print(f'{"="*60}', flush=True)
 print(f'  {"DT":>8}  {"accept%":>8}  {"log_p early":>12}  {"log_p late":>10}  {"trend/step":>10}', flush=True)
 print(f'  {"-"*56}', flush=True)
 
-for dt in [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]:
+for dt in [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]:
     torch.cuda.empty_cache()
     torch.manual_seed(42)
-    # warmup
     latent_MALA_celeba(model, clf, N_CHAINS, N_WARMUP, dt, device)
     _, accept_rate, log_p_trace = latent_MALA_celeba(
         model, clf, N_CHAINS, N_STEPS, dt, device, return_diagnostics=True)
@@ -85,9 +84,10 @@ print(f'\n{"="*60}', flush=True)
 print(f'  ULA — check: log_p stabilises (slope ≈ 0)', flush=True)
 print(f'  {N_CHAINS} chains × {N_STEPS} steps', flush=True)
 print(f'{"="*60}', flush=True)
-print(f'  {"DT":>8}  {"log_p early":>12}  {"log_p late":>10}  {"trend/step":>10}  {"stable?":>8}', flush=True)
-print(f'  {"-"*56}', flush=True)
+print(f'  {"DT":>8}  {"log_p early":>12}  {"log_p late":>10}  {"trend/step":>10}  {"bias":>8}  {"stable?":>8}', flush=True)
+print(f'  {"-"*64}', flush=True)
 
+prev_stable_dt = None
 for dt in [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]:
     torch.cuda.empty_cache()
     torch.manual_seed(42)
@@ -95,9 +95,13 @@ for dt in [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]:
     _, log_p_trace = latent_ULA_celeba(
         model, clf, N_CHAINS, N_STEPS, dt, device, return_diagnostics=True)
     early, late, slope = log_p_stats(log_p_trace)
-    stable = 'YES' if abs(slope) < 0.05 else 'DIVERGING'
-    flag = ' ← largest stable' if abs(slope) < 0.05 else ''
-    print(f'  {dt:>8.3f}  {early:>12.2f}  {late:>10.2f}  {slope:>+10.4f}  {stable:>8}{flag}', flush=True)
+    bias = late - early  # negative = drifting down
+    stable = abs(slope) < 0.01 and abs(bias) < 2.0
+    if stable:
+        prev_stable_dt = dt
+    status = 'stable' if stable else 'BIASED'
+    flag = ' ← largest stable' if stable and dt == prev_stable_dt else ''
+    print(f'  {dt:>8.3f}  {early:>12.2f}  {late:>10.2f}  {slope:>+10.4f}  {bias:>+8.2f}  {status:>8}{flag}', flush=True)
 
 # ── G_MH sweep ────────────────────────────────────────────────────────────────
 
