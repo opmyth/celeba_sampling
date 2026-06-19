@@ -25,3 +25,5 @@ data/
 *.json
 
 *.md
+
+.DS_Store
