@@ -68,20 +68,17 @@ def run_sampler_minibatched(sampler_fn, model, clf, total_chains, n_steps, param
         results.append(out)
     return torch.cat(results, dim=0)
 
-def compute_total_steps(target_samples, burnin, thin_k):
-    total = burnin + target_samples * thin_k
-    print(f"Thinning: burnin={burnin}, thin_k={thin_k}, target_samples={target_samples} → total_steps={total}", flush=True)
-    return total
-
 t = time.time()
 if args.burnin == 0 and args.thin_k == 1:
     all_samples = run_sampler_minibatched(sampler_fn, stylegan, smile_clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
     samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
 else:
-    n_steps_total = compute_total_steps(args.n_chains, args.burnin, args.thin_k)
+    kept_per_chain = (args.n_steps - args.burnin) // args.thin_k
+    print(f"Thinning: {args.n_chains} chains x {args.n_steps} steps, burnin={args.burnin}, thin_k={args.thin_k} -> {kept_per_chain} samples/chain -> {args.n_chains * kept_per_chain} total/trial", flush=True)
     samples_list = []
     for trial in range(args.n_trials):
-        chain = sampler_fn(stylegan, smile_clf, 1, n_steps_total, param, device=device,
+        torch.manual_seed(args.seed + trial)
+        chain = sampler_fn(stylegan, smile_clf, args.n_chains, args.n_steps, param, device=device,
                            burnin=args.burnin, thin_k=args.thin_k)
         samples_list.append(torch.cat(chain, dim=0))
 print(f"{args.sampler} done: {time.time()-t:.2f}s", flush=True)

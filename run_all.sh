@@ -3,14 +3,15 @@
 # Usage: bash run_all.sh
 set -eo pipefail
 
-N_CHAINS=1000
+N_CHAINS=100
 N_TRIALS=5
-N_STEPS=800
-DT=0.01
+N_STEPS=3000
+DT_MALA=0.1
+DT_ULA=0.02
 SIGMA=0.105
 BATCH_SIZE=64
-BURNIN=0
-THIN_K=1
+BURNIN=1000
+THIN_K=200
 
 mkdir -p logs
 
@@ -27,7 +28,7 @@ python run_sampler.py \
     --n_chains "$N_CHAINS" \
     --n_trials "$N_TRIALS" \
     --n_steps "$N_STEPS" \
-    --dt "$DT" \
+    --dt "$DT_ULA" \
     --batch_size "$BATCH_SIZE" \
     --burnin "$BURNIN" \
     --thin_k "$THIN_K" \
@@ -41,7 +42,7 @@ python run_sampler.py \
     --n_chains "$N_CHAINS" \
     --n_trials "$N_TRIALS" \
     --n_steps "$N_STEPS" \
-    --dt "$DT" \
+    --dt "$DT_MALA" \
     --batch_size "$BATCH_SIZE" \
     --burnin "$BURNIN" \
     --thin_k "$THIN_K" \
