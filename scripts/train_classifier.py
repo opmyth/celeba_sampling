@@ -18,6 +18,18 @@ parser.add_argument('--augment', action='store_true')
 parser.add_argument('--subset_size', type=int, default=20000)
 args = parser.parse_args()
 
+def stratified_subset(dataset, attr_idx, subset_size):
+    labels = dataset.attr[:, attr_idx]
+    pos_idx = (labels == 1).nonzero(as_tuple=True)[0]
+    neg_idx = (labels == 0).nonzero(as_tuple=True)[0]
+    n_pos = min(subset_size // 2, len(pos_idx))
+    n_neg = min(n_pos, len(neg_idx))  # keep 50/50
+    chosen = torch.cat([
+        pos_idx[torch.randperm(len(pos_idx))[:n_pos]],
+        neg_idx[torch.randperm(len(neg_idx))[:n_neg]],
+    ])
+    return Subset(dataset, chosen), n_pos, n_neg
+
 def train_classifier(model, train_loader, attr, device, epochs=5, lr=1e-3):
     model.to(device)
     optim = torch.optim.Adam(model.parameters(), lr=lr)
@@ -60,11 +72,10 @@ celeba_transforms = celeba_train_transforms_aug if args.augment else celeba_trai
 print('Downloading the dataset')
 celeba_dataset = datasets.CelebA(root='./data', split='train', target_type='attr', transform=celeba_transforms, download=True)
 
-rng = np.random.default_rng(42)
-indices = rng.choice(len(celeba_dataset), size=args.subset_size, replace=False)
-celeba_dataset = Subset(celeba_dataset, indices)
+celeba_dataset, n_pos, n_neg = stratified_subset(celeba_dataset, args.attr, args.subset_size)
+print(f"Subset: {n_pos} positive, {n_neg} negative")
 
-train_loader = DataLoader(celeba_dataset, batch_size=256, shuffle=True)
+train_loader = DataLoader(celeba_dataset, batch_size=512, shuffle=True)
 
 clf = classifier().to(device)
 train_classifier(clf, train_loader, args.attr, device)
