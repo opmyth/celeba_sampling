@@ -33,3 +33,5 @@ data/
 venv/
 
 clf_checkpoints/
+
+*.ipynb

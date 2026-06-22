@@ -69,7 +69,10 @@ def run_sampler_minibatched(sampler_fn, model, clf, total_chains, n_steps, param
         results.append(out)
     return torch.cat(results, dim=0)
 
+HAS_ACCEPT = {'MALA', 'G_MH'}
+
 t = time.time()
+accept_rates = []
 if args.burnin == 0 and args.thin_k == 1:
     all_samples = run_sampler_minibatched(sampler_fn, stylegan, clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
     samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
@@ -79,10 +82,18 @@ else:
     samples_list = []
     for trial in range(args.n_trials):
         torch.manual_seed(args.seed + trial)
-        chain = sampler_fn(stylegan, clf, args.n_chains, args.n_steps, param, device=device,
-                           burnin=args.burnin, thin_k=args.thin_k)
+        result = sampler_fn(stylegan, clf, args.n_chains, args.n_steps, param, device=device,
+                            burnin=args.burnin, thin_k=args.thin_k, return_diagnostics=True)
+        if args.sampler in HAS_ACCEPT:
+            chain, accept_rate, _ = result
+            accept_rates.append(accept_rate)
+            print(f"  trial {trial+1}/{args.n_trials} accept_rate={accept_rate:.1%}", flush=True)
+        else:
+            chain, _ = result
         samples_list.append(torch.cat(chain, dim=0))
 print(f"{args.sampler} done: {time.time()-t:.2f}s", flush=True)
+if accept_rates:
+    print(f"Mean acceptance rate: {np.mean(accept_rates):.1%}", flush=True)
 
 t = time.time()
 w2_values = [compute_w2(samples_list[i], rs_samples_list[i]) for i in range(args.n_trials)]
@@ -105,7 +116,7 @@ t = time.time()
 male_fraction = [compute_male_fraction(stylegan, male_clf, samples_list[i]) for i in range(args.n_trials)]
 print(f"male_fraction done: {time.time()-t:.2f}s", flush=True)
 
-wandb.log({
+wandb_log = {
     "w2_values_mean": np.mean(w2_values),
     "w2_values_std": np.std(w2_values, ddof=1),
     "avg_log_reward_mean": np.mean(avg_log_reward),
@@ -116,7 +127,11 @@ wandb.log({
     "diversity_trace_cov_std": np.std(diversity_trace_cov, ddof=1),
     "male_fraction_mean": np.mean(male_fraction),
     "male_fraction_std": np.std(male_fraction, ddof=1),
-})
+}
+if accept_rates:
+    wandb_log["accept_rate_mean"] = np.mean(accept_rates)
+    wandb_log["accept_rate_std"] = np.std(accept_rates, ddof=1)
+wandb.log(wandb_log)
 
 torch.save({
     'samples': samples_list,
@@ -125,6 +140,7 @@ torch.save({
     'diversity': diversity,
     'diversity_trace_cov': diversity_trace_cov,
     'male_fraction': male_fraction,
+    'accept_rates': accept_rates if accept_rates else None,
 }, args.output_path)
 
 print(f'{args.sampler} results saved to {args.output_path}')
