@@ -29,3 +29,5 @@ data/
 .DS_Store
 
 venv/
+
+clf_checkpoints/

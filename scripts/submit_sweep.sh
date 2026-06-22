@@ -35,7 +35,7 @@ from samplers import latent_MALA_celeba, latent_ULA_celeba, latent_Gaussian_MH_c
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
-model, clf, _ = load_models(device)
+model, clf, _ = load_models('Bald', device)
 print('Compiling models...', flush=True)
 clf     = torch.compile(clf)
 model.G = torch.compile(model.G)

@@ -9,10 +9,10 @@ from models import classifier, StyleGAN2Wrapper
 # Checkpoint filename exactly as downloaded from the StyleGAN2-ADA repo
 _STYLEGAN_PKL = 'stylegan2_celeba.pkl'
 
-def load_models(device):
-    smile_clf = classifier().to(device)
-    smile_clf.load_state_dict(torch.load(
-        os.path.join(_HERE, 'clf_checkpoints', 'smile_clf_aug.pth'), weights_only=False))
+def load_models(attr_name, device):
+    clf = classifier().to(device)
+    clf.load_state_dict(torch.load(
+        os.path.join(_HERE, 'clf_checkpoints', f'{attr_name}_clf_aug.pth'), weights_only=False))
     smile_clf.eval()
 
     male_clf = classifier().to(device)
@@ -30,4 +30,4 @@ def load_models(device):
     smile_clf.requires_grad_(False)
     male_clf.requires_grad_(False)
 
-    return stylegan, smile_clf, male_clf
+    return stylegan, clf, male_clf
