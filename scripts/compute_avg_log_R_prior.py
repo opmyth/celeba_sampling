@@ -1,5 +1,7 @@
 import sys, os
-sys.path.insert(0, os.path.abspath('/home/s2800722/dissertation/stylegan2-ada-pytorch'))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_ROOT, 'stylegan2-ada-pytorch'))
+sys.path.insert(0, _ROOT)
 
 import torch
 from tqdm import tqdm

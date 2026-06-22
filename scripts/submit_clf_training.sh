@@ -26,6 +26,7 @@ nvidia-smi
 
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 
+export PYTHONPATH=~/celeba_sampling:$PYTHONPATH
 echo "About to run python..."
 python scripts/train_classifier.py 4 Bald --augment
 echo "Python done."

@@ -1,5 +1,7 @@
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stylegan2-ada-pytorch'))
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(_ROOT, 'stylegan2-ada-pytorch'))
+sys.path.insert(0, _ROOT)
 
 from tqdm import tqdm
 

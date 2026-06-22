@@ -1,8 +1,6 @@
 import argparse
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 from tqdm import tqdm
@@ -62,8 +60,8 @@ celeba_train_transforms_aug = transforms.Compose([
 ])
 
 celeba_train_transforms_plain = transforms.Compose([
-    transforms.ToTensor(),
     transforms.Resize((256, 256)),
+    transforms.ToTensor(),
     transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
