@@ -13,7 +13,7 @@ def load_models(attr_name, device):
     clf = classifier().to(device)
     clf.load_state_dict(torch.load(
         os.path.join(_HERE, 'clf_checkpoints', f'{attr_name}_clf_aug.pth'), weights_only=False))
-    smile_clf.eval()
+    clf.eval()
 
     male_clf = classifier().to(device)
     male_clf.load_state_dict(torch.load(
@@ -27,7 +27,7 @@ def load_models(attr_name, device):
     stylegan = StyleGAN2Wrapper(G).to(device)
     stylegan.eval()
     stylegan.requires_grad_(False)
-    smile_clf.requires_grad_(False)
+    clf.requires_grad_(False)
     male_clf.requires_grad_(False)
 
     return stylegan, clf, male_clf
