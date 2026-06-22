@@ -1,0 +1,9 @@
+classifier: bald_clf_aug.pth
+dt_ula: 0.01
+dt_mala: 0.1
+sigma_gmh: 0.105
+n_chains: 100
+n_steps: 3000
+burnin: 1000
+thin_k: 200
+n_trials: 5

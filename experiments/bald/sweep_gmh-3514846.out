@@ -1,0 +1,26 @@
+Job ID: 3514846
+Node: landonia11
+Started: Mon 22 Jun 15:10:21 UTC 2026
+Device: cuda
+Compiling models...
+Done.
+
+============================================================
+  G_MH — target acceptance: 23%
+  Theory: sigma_opt = 2.38/sqrt(512) = 0.1052
+  100 chains × 300 steps
+============================================================
+     sigma   accept%   log_p early  log_p late
+  ----------------------------------------------
+Setting up PyTorch plugin "bias_act_plugin"... Done.
+Setting up PyTorch plugin "upfirdn2d_plugin"... Done.
+     0.050    56.4%       -257.80     -257.83
+     0.075    39.0%       -257.70     -258.10
+     0.105    22.9%       -257.39     -257.83 ← target
+     0.150     8.9%       -257.69     -258.56
+     0.200     2.5%       -257.99     -257.79
+     0.300     0.1%       -258.08     -258.01
+     0.500     0.0%       -258.10     -258.10
+
+Done.
+Finished: Mon 22 Jun 15:25:33 UTC 2026
