@@ -81,3 +81,18 @@ train_classifier(clf, train_loader, args.attr, device)
 suffix = '_aug' if args.augment else ''
 torch.save(clf.state_dict(), f'./clf_checkpoints/{args.attr_name}_clf{suffix}.pth')
 print(f"Saved to ./clf_checkpoints/{args.attr_name}_clf{suffix}.pth")
+
+val_dataset = datasets.CelebA(root='./data', split='valid', target_type='attr', transform=celeba_train_transforms_plain, download=False)
+val_loader = DataLoader(val_dataset, batch_size=512, shuffle=False)
+
+clf.eval()
+n_samples, correct = 0, 0
+with torch.no_grad():
+    for x, attrs in tqdm(val_loader, desc='Validation'):
+        x = x.to(device)
+        y = attrs[:, args.attr].long().to(device)
+        logits = clf(x).squeeze()
+        pred = (logits > 0).long()
+        correct += (pred == y).sum().item()
+        n_samples += x.size(0)
+print(f"val_acc = {correct/n_samples:.3f}")
