@@ -27,3 +27,5 @@ data/
 *.md
 
 .DS_Store
+
+venv/
