@@ -68,7 +68,7 @@ celeba_train_transforms_plain = transforms.Compose([
 celeba_transforms = celeba_train_transforms_aug if args.augment else celeba_train_transforms_plain
 
 print('Downloading the dataset')
-celeba_dataset = datasets.CelebA(root='./data', split='train', target_type='attr', transform=celeba_transforms, download=True)
+celeba_dataset = datasets.CelebA(root='./data', split='train', target_type='attr', transform=celeba_transforms, download=False)
 
 celeba_dataset, n_pos, n_neg = stratified_subset(celeba_dataset, args.attr, args.subset_size)
 print(f"Subset: {n_pos} positive, {n_neg} negative")

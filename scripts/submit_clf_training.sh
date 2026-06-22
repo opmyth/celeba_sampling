@@ -7,6 +7,7 @@
 #SBATCH --output=logs/bald-clf-%j.out
 #SBATCH --error=logs/bald-clf-%j.err
 
+set -x
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
 echo "Started: $(date -u)"
