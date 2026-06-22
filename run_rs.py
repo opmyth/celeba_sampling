@@ -14,6 +14,7 @@ from samplers import rejection_sampling
 from utils import compute_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--clf_name', type=str, required=True)
 parser.add_argument('--n_chains', type=int, default=100)
 parser.add_argument('--n_trials', type=int, default=10)
 parser.add_argument('--seed', type=int, default=321)
@@ -22,8 +23,8 @@ args = parser.parse_args()
 
 wandb.init(
     project="dissertation-stylegan-sampling",
-    name=f"RS-chains{args.n_chains}-trials{args.n_trials}",
-    group=f"experiment_n{args.n_chains}_t{args.n_trials}",
+    name=f"RS-{args.clf_name}-chains{args.n_chains}-trials{args.n_trials}",
+    group=f"{args.clf_name}_n{args.n_chains}_t{args.n_trials}",
     job_type="RS",
     config=vars(args),
 )
@@ -31,11 +32,11 @@ wandb.init(
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device {device}')
 
-stylegan, smile_clf, male_clf = load_models(device)
+stylegan, clf, male_clf = load_models(args.clf_name, device)
 torch.manual_seed(args.seed)
 
 t = time.time()
-RS_samples = rejection_sampling(stylegan, smile_clf, args.n_chains * args.n_trials * 2, device=device)
+RS_samples = rejection_sampling(stylegan, clf, args.n_chains * args.n_trials * 2, device=device)
 print(f"RS done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
@@ -46,7 +47,7 @@ print(f"RS W2 baseline done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
 with torch.no_grad():
-    avg_log_reward = [F.logsigmoid(smile_clf(stylegan(rs_samples_list[i]))).mean().item() for i in range(args.n_trials)]
+    avg_log_reward = [F.logsigmoid(clf(stylegan(rs_samples_list[i]))).mean().item() for i in range(args.n_trials)]
 print(f"avg_log_reward done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()

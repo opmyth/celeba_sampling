@@ -19,6 +19,7 @@ SAMPLER_FNS = {
 }
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--clf_name', type=str, required=True)
 parser.add_argument('--sampler', type=str, required=True, choices=['ULA', 'MALA', 'G_MH'])
 parser.add_argument('--n_chains', type=int, default=100)
 parser.add_argument('--n_steps', type=int, default=800)
@@ -37,8 +38,8 @@ args = parser.parse_args()
 
 wandb.init(
     project="dissertation-stylegan-sampling",
-    name=f"{args.sampler}-chains{args.n_chains}-trials{args.n_trials}",
-    group=f"experiment_n{args.n_chains}_t{args.n_trials}",
+    name=f"{args.sampler}-{args.clf_name}-chains{args.n_chains}-trials{args.n_trials}",
+    group=f"{args.clf_name}_n{args.n_chains}_t{args.n_trials}",
     job_type=args.sampler,
     config=vars(args),
 )
@@ -46,9 +47,9 @@ wandb.init(
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device {device}')
 
-stylegan, smile_clf, male_clf = load_models(device)
+stylegan, clf, male_clf = load_models(args.clf_name, device)
 print('Compiling models...', flush=True)
-smile_clf = torch.compile(smile_clf)
+clf = torch.compile(clf)
 male_clf = torch.compile(male_clf)
 stylegan.G = torch.compile(stylegan.G)
 print('Done.', flush=True)
@@ -70,7 +71,7 @@ def run_sampler_minibatched(sampler_fn, model, clf, total_chains, n_steps, param
 
 t = time.time()
 if args.burnin == 0 and args.thin_k == 1:
-    all_samples = run_sampler_minibatched(sampler_fn, stylegan, smile_clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
+    all_samples = run_sampler_minibatched(sampler_fn, stylegan, clf, args.n_chains * args.n_trials, args.n_steps, param, batch_size=args.batch_size, device=device)
     samples_list = list(torch.chunk(all_samples, args.n_trials, dim=0))
 else:
     kept_per_chain = (args.n_steps - args.burnin) // args.thin_k
@@ -78,7 +79,7 @@ else:
     samples_list = []
     for trial in range(args.n_trials):
         torch.manual_seed(args.seed + trial)
-        chain = sampler_fn(stylegan, smile_clf, args.n_chains, args.n_steps, param, device=device,
+        chain = sampler_fn(stylegan, clf, args.n_chains, args.n_steps, param, device=device,
                            burnin=args.burnin, thin_k=args.thin_k)
         samples_list.append(torch.cat(chain, dim=0))
 print(f"{args.sampler} done: {time.time()-t:.2f}s", flush=True)
@@ -89,7 +90,7 @@ print(f"{args.sampler} W2 done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
 with torch.no_grad():
-    avg_log_reward = [F.logsigmoid(smile_clf(stylegan(samples_list[i]))).mean().item() for i in range(args.n_trials)]
+    avg_log_reward = [F.logsigmoid(clf(stylegan(samples_list[i]))).mean().item() for i in range(args.n_trials)]
 print(f"avg_log_reward done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()

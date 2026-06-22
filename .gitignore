@@ -7,6 +7,8 @@ wandb/
 
 # Logs (recreated by run_all.sh)
 logs/
+experiments/**/*.out
+experiments/**/*.err
 
 # Python bytecode
 __pycache__/

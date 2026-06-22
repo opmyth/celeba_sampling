@@ -2,8 +2,8 @@
 #SBATCH --job-name=step_size_sweep
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:h200_3g.71gb:1
-#SBATCH --nodelist=saxa
+#SBATCH --gres=gpu:1
+#SBATCH --exclude=opencast,saxa
 #SBATCH --time=03:00:00
 #SBATCH --output=logs/sweep-%j.out
 #SBATCH --error=logs/sweep-%j.err
