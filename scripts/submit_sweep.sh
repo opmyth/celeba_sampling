@@ -68,7 +68,7 @@ print(f'{"="*60}', flush=True)
 print(f'  {"DT":>8}  {"accept%":>8}  {"log_p early":>12}  {"log_p late":>10}  {"trend/step":>10}', flush=True)
 print(f'  {"-"*56}', flush=True)
 
-for dt in [0.1, 0.2, 0.3, 0.4, 0.5, 0.7]:
+for dt in [0.05, 0.07, 0.08, 0.09, 0.10]:
     torch.cuda.empty_cache()
     torch.manual_seed(42)
     latent_MALA_celeba(model, clf, N_CHAINS, N_WARMUP, dt, device)
@@ -88,7 +88,7 @@ print(f'  {"DT":>8}  {"log_p early":>12}  {"log_p late":>10}  {"trend/step":>10}
 print(f'  {"-"*64}', flush=True)
 
 prev_stable_dt = None
-for dt in [0.001, 0.005, 0.01, 0.02, 0.05, 0.1]:
+for dt in [0.01, 0.02, 0.03, 0.04, 0.05]:
     torch.cuda.empty_cache()
     torch.manual_seed(42)
     latent_ULA_celeba(model, clf, N_CHAINS, N_WARMUP, dt, device)
