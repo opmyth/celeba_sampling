@@ -4,6 +4,7 @@
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:nvidia_rtx_a6000:1
 #SBATCH --nodelist=landonia11
+#SBATCH --mem=4G
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/run_smile-%j.out
 #SBATCH --error=logs/run_smile-%j.err
