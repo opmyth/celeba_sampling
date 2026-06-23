@@ -4,9 +4,9 @@ from tqdm import tqdm
 
 from utils import log_posterior_celeba, grad_log_posterior_celeba, grad_and_log_posterior_celeba
 
-def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1, return_diagnostics=False):
+def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1, return_diagnostics=False, z_init=None):
     latent_dim = model.latent_dim
-    z = torch.randn(n_chains, latent_dim, device=device)
+    z = z_init.clone().to(device) if z_init is not None else torch.randn(n_chains, latent_dim, device=device)
     samples = []
     noise_scale = np.sqrt(2*dt)
     log_p_trace = []
@@ -27,9 +27,9 @@ def latent_ULA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_
         return samples, log_p_trace
     return samples
 
-def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1, return_diagnostics=False):
+def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin_k=1, return_diagnostics=False, z_init=None):
     latent_dim = model.latent_dim
-    z = torch.randn(n_chains, latent_dim, device=device)
+    z = z_init.clone().to(device) if z_init is not None else torch.randn(n_chains, latent_dim, device=device)
     samples = []
     noise_scale = np.sqrt(2*dt)
     z_grad, log_p_z = grad_and_log_posterior_celeba(z, model, clf)
@@ -63,9 +63,9 @@ def latent_MALA_celeba(model, clf, n_chains, n_steps, dt, device, burnin=0, thin
         return samples, accept_count / n_steps, log_p_trace
     return samples
 
-def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device, burnin=0, thin_k=1, return_diagnostics=False):
+def latent_Gaussian_MH_celeba(model, clf, n_chains, n_steps, sigma, device, burnin=0, thin_k=1, return_diagnostics=False, z_init=None):
     latent_dim = model.latent_dim
-    z = torch.randn(n_chains, latent_dim, device=device)
+    z = z_init.clone().to(device) if z_init is not None else torch.randn(n_chains, latent_dim, device=device)
     log_p_z = log_posterior_celeba(z, model, clf)
     samples = []
     accept_count = 0

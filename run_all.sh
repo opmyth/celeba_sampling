@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # Full end-to-end pipeline: RS → ULA → MALA → G_MH → merge
-# Usage: bash run_all.sh <experiment_name>
+# Usage: bash run_all.sh <experiment_name> [init]
+#   init: random (default), cold, warm
 set -eo pipefail
 
-EXPR=${1:?Usage: bash run_all.sh <experiment_name>}
-EXPR_DIR="experiments/${EXPR}"
+EXPR=${1:?Usage: bash run_all.sh <experiment_name> [init]}
+INIT=${2:-random}
+if [ "$INIT" = "random" ]; then
+    EXPR_DIR="experiments/${EXPR}"
+else
+    EXPR_DIR="experiments/${EXPR}_${INIT}"
+fi
 
 N_CHAINS=100
 N_TRIALS=5
@@ -20,6 +26,7 @@ mkdir -p logs "${EXPR_DIR}"
 
 cat > "${EXPR_DIR}/config.txt" <<CFG
 experiment:  ${EXPR}
+init:        ${INIT}
 timestamp:   $(date -u '+%Y-%m-%d %H:%M:%S UTC')
 n_chains:    ${N_CHAINS}
 n_trials:    ${N_TRIALS}
@@ -45,6 +52,7 @@ echo "=== [2/5] ULA ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler ULA \
+    --init "$INIT" \
     --n_chains "$N_CHAINS" \
     --n_trials "$N_TRIALS" \
     --n_steps "$N_STEPS" \
@@ -60,6 +68,7 @@ echo "=== [3/5] MALA ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler MALA \
+    --init "$INIT" \
     --n_chains "$N_CHAINS" \
     --n_trials "$N_TRIALS" \
     --n_steps "$N_STEPS" \
@@ -75,6 +84,7 @@ echo "=== [4/5] G_MH ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler G_MH \
+    --init "$INIT" \
     --n_chains "$N_CHAINS" \
     --n_trials "$N_TRIALS" \
     --n_steps "$N_STEPS" \

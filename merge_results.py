@@ -23,6 +23,8 @@ torch.save({
         'diversity_trace_cov': {'RS': rs['diversity_trace_cov'], 'ULA': ula['diversity_trace_cov'], 'MALA': mala['diversity_trace_cov'], 'G_MH': gmh['diversity_trace_cov']},
         'male_fraction': {'RS': rs['male_fraction'], 'ULA': ula['male_fraction'], 'MALA': mala['male_fraction'], 'G_MH': gmh['male_fraction']},
         'accept_rates': {'MALA': mala.get('accept_rates'), 'G_MH': gmh.get('accept_rates')},
+        'z_init': ula.get('z_init'),
+        'z_final': {'ULA': ula.get('z_final'), 'MALA': mala.get('z_final'), 'G_MH': gmh.get('z_final')},
     }
 }, args.output_path)
 
