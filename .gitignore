@@ -21,6 +21,7 @@ stylegan2_checkpoints/*.pkl
 stylegan2-ada-pytorch/*.pkl
 
 # CelebA dataset (download separately — see README)
+data
 data/
 
 # Misc
