@@ -35,3 +35,5 @@ venv/
 clf_checkpoints/
 
 *.ipynb
+
+experiments/

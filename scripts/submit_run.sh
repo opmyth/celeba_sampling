@@ -2,9 +2,9 @@
 #SBATCH --job-name=celeba_bald
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:h200_3g.71gb:1
-#SBATCH --nodelist=saxa
-#SBATCH --time=04:00:00
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
+#SBATCH --nodelist=landonia11
+#SBATCH --time=08:00:00
 #SBATCH --output=logs/run_bald-%j.out
 #SBATCH --error=logs/run_bald-%j.err
 
