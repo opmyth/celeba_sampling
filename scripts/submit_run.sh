@@ -9,8 +9,11 @@
 #SBATCH --output=logs/run_smile-%j.out
 #SBATCH --error=logs/run_smile-%j.err
 
+INIT=${INIT:-random}
+
 echo "Job ID: ${SLURM_JOB_ID}"
 echo "Node: ${SLURMD_NODENAME}"
+echo "Init: ${INIT}"
 echo "Started: $(date -u)"
 
 module load cuda/12.8.0
@@ -26,6 +29,6 @@ mkdir -p logs
 
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 
-bash run_all.sh smile
+bash run_all.sh smile "$INIT"
 
 echo "Finished: $(date -u)"
