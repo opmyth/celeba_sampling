@@ -25,6 +25,6 @@ mkdir -p logs
 
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 
-bash run_all.sh bald
+bash run_all.sh smile
 
 echo "Finished: $(date -u)"
