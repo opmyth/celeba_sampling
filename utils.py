@@ -95,21 +95,10 @@ def compute_ttest(values_per_sampler, baseline, alpha=0.05, pairwise=False):
         }
     return result
 
-def compute_diversity(model, z_samples, n_pairs=500):
-
-    with torch.no_grad():
-        imgs = model(z_samples)
-        imgs_flat = imgs.view(imgs.size(0), -1)
-
-    N = imgs_flat.size(0)
-    idx_i = torch.randint(0, N, (n_pairs,))
-    idx_j = torch.randint(0, N, (n_pairs,))
-
-    mask = idx_i != idx_j
-    idx_i = idx_i[mask]
-    idx_j = idx_j[mask]
-
-    distances = torch.norm(imgs_flat[idx_i] - imgs_flat[idx_j], dim=1)
+def compute_diversity(z_samples):
+    N = z_samples.size(0)
+    idx_i, idx_j = torch.triu_indices(N, N, offset=1)
+    distances = torch.norm(z_samples[idx_i] - z_samples[idx_j], dim=1) ** 2
     return distances.mean().item()
 
 def compute_diversity_cov(z_samples):

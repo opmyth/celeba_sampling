@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Full end-to-end pipeline: RS → ULA → MALA → G_MH → merge
+# Full end-to-end pipeline: RS → Prior → ULA → MALA → G_MH → merge
 # Usage: bash run_all.sh <experiment_name> [init]
 #   init: random (default), cold, warm
 set -eo pipefail
@@ -40,7 +40,7 @@ thin_k:      ${THIN_K}
 clf:         clf_checkpoints/${EXPR}_clf_aug.pth
 CFG
 
-echo "=== [1/5] Rejection Sampling ==="
+echo "=== [1/6] Rejection Sampling ==="
 python run_rs.py \
     --clf_name "$EXPR" \
     --n_chains "$N_CHAINS" \
@@ -48,7 +48,16 @@ python run_rs.py \
     --output_path "${EXPR_DIR}/results_rs.pt" \
     2>&1 | tee logs/rs.log
 
-echo "=== [2/5] ULA ==="
+echo "=== [2/6] Prior ==="
+python run_prior.py \
+    --clf_name "$EXPR" \
+    --n_chains "$N_CHAINS" \
+    --n_trials "$N_TRIALS" \
+    --rs_path "${EXPR_DIR}/results_rs.pt" \
+    --output_path "${EXPR_DIR}/results_prior.pt" \
+    2>&1 | tee logs/prior.log
+
+echo "=== [3/6] ULA ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler ULA \
@@ -64,7 +73,7 @@ python run_sampler.py \
     --output_path "${EXPR_DIR}/results_ula.pt" \
     2>&1 | tee logs/ula.log
 
-echo "=== [3/5] MALA ==="
+echo "=== [4/6] MALA ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler MALA \
@@ -80,7 +89,7 @@ python run_sampler.py \
     --output_path "${EXPR_DIR}/results_mala.pt" \
     2>&1 | tee logs/mala.log
 
-echo "=== [4/5] G_MH ==="
+echo "=== [5/6] G_MH ==="
 python run_sampler.py \
     --clf_name "$EXPR" \
     --sampler G_MH \
@@ -96,12 +105,13 @@ python run_sampler.py \
     --output_path "${EXPR_DIR}/results_gmh.pt" \
     2>&1 | tee logs/gmh.log
 
-echo "=== [5/5] Merging results ==="
+echo "=== [6/6] Merging results ==="
 python merge_results.py \
-    --rs_path   "${EXPR_DIR}/results_rs.pt" \
-    --ula_path  "${EXPR_DIR}/results_ula.pt" \
-    --mala_path "${EXPR_DIR}/results_mala.pt" \
-    --gmh_path  "${EXPR_DIR}/results_gmh.pt" \
+    --prior_path "${EXPR_DIR}/results_prior.pt" \
+    --rs_path    "${EXPR_DIR}/results_rs.pt" \
+    --ula_path   "${EXPR_DIR}/results_ula.pt" \
+    --mala_path  "${EXPR_DIR}/results_mala.pt" \
+    --gmh_path   "${EXPR_DIR}/results_gmh.pt" \
     --output_path "${EXPR_DIR}/results_stylegan.pt" \
     2>&1 | tee logs/merge.log
 

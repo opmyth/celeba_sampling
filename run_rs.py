@@ -51,7 +51,7 @@ with torch.no_grad():
 print(f"avg_log_reward done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
-diversity = [compute_diversity(stylegan, rs_samples_list[i]) for i in range(args.n_trials)]
+diversity = [compute_diversity(rs_samples_list[i]) for i in range(args.n_trials)]
 print(f"diversity done: {time.time()-t:.2f}s", flush=True)
 
 t = time.time()
