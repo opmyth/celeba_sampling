@@ -108,10 +108,11 @@ def t1_rs_row():
 
 def t1_sam_row(si, label):
     cells = [label]
+    is_prior = SAMPLERS[si] == 'Prior'
     for ei, (_, exp) in enumerate(EXP_T1):
         for mi, (_, mkey) in enumerate(METRICS_T1):
             m, s = ms(sam_vals(exp, mkey, SAMPLERS[si]))
-            cells.append(fmt_cell(m, s, adj_p1[(ei, mi, si)]))
+            cells.append(fmt_ms(m, s) if is_prior else fmt_cell(m, s, adj_p1[(ei, mi, si)]))
     return ' & '.join(cells) + r' \\'
 
 n_exp1 = len(EXP_T1)
@@ -215,10 +216,11 @@ def t2_rs_row():
 
 def t2_sam_row(si, label):
     cells = [label]
+    is_prior = SAMPLERS[si] == 'Prior'
     for ii, (_, exp) in enumerate(INITS_T2):
         for mi, (_, mkey) in enumerate(METRICS_T2):
             m, s = ms(sam_vals(exp, mkey, SAMPLERS[si]))
-            cells.append(fmt_cell(m, s, adj_p2[(ii, mi, si)]))
+            cells.append(fmt_ms(m, s) if is_prior else fmt_cell(m, s, adj_p2[(ii, mi, si)]))
     return ' & '.join(cells) + r' \\'
 
 n_init2 = len(INITS_T2)
