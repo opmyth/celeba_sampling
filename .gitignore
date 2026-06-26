@@ -13,7 +13,7 @@ experiments/**/*.err
 # Python bytecode
 __pycache__/
 *.pyc
-
+*.tex
 # StyleGAN2 model checkpoint (download separately — see README).
 # Track the directory but not the .pkl binary.
 stylegan2_checkpoints/*.pkl
@@ -38,3 +38,5 @@ clf_checkpoints/
 *.ipynb
 
 experiments/
+
+*.png
