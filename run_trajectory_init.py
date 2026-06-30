@@ -99,7 +99,7 @@ for init_type in ['random', 'cold', 'warm']:
     print(f'\n=== init: {init_type} ===', flush=True)
     torch.manual_seed(args.seed)
     z0 = get_init_z(init_type)
-    torch.manual_seed(args.seed)          # same noise sequence for fair comparison
+    torch.manual_seed(args.seed) 
     snapshots[init_type] = run_mala(z0)
 
 out_dir  = os.path.join('experiments', args.attribute, 'trajectory')

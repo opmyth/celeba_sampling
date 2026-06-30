@@ -13,13 +13,21 @@ SNAPSHOT_STEPS = [0, 200, 500, 1000, 2000, 3000]
 INIT_TYPES     = ['random', 'cold', 'warm']
 
 
-def _decode(z_batch, stylegan):
-    """(N, 512) → (N, H, W, 3) numpy float32 in [0, 1]."""
+def _decode(z_batch, stylegan, clf=None):
+    """(N, 512) → images (N, H, W, 3) in [0,1] and optional probs list."""
     device = next(stylegan.parameters()).device
     with torch.no_grad():
-        imgs = stylegan.G(z_batch.to(device), None)   # (N, 3, H, W) in [-1, 1]
-    imgs = ((imgs.clamp(-1, 1) + 1) / 2).cpu().numpy()
-    return imgs.transpose(0, 2, 3, 1)                 # (N, H, W, 3)
+        imgs = stylegan.G(z_batch.to(device), None)       # (N, 3, H, W) in [-1, 1]
+        probs = torch.sigmoid(clf(imgs)).squeeze(-1).cpu().tolist() if clf is not None else None
+    imgs_np = ((imgs.clamp(-1, 1) + 1) / 2).cpu().numpy()
+    return imgs_np.transpose(0, 2, 3, 1), probs           # (N, H, W, 3), list|None
+
+
+def _annotate_prob(ax, prob):
+    ax.text(0.5, 0.04, f'{prob:.3f}',
+            transform=ax.transAxes, ha='center', va='bottom',
+            fontsize=7, color='white',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor='black', alpha=0.55, linewidth=0))
 
 
 def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
@@ -53,7 +61,7 @@ def plot_init_grid(attribute):
     snapshots = torch.load(snap_path, weights_only=False)
 
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    stylegan, _, _ = load_models(attribute, device)
+    stylegan, clf, _ = load_models(attribute, device)
 
     col_labels = [f'Step {s}' for s in SNAPSHOT_STEPS]
     row_labels = INIT_TYPES
@@ -67,10 +75,11 @@ def plot_init_grid(attribute):
 
         for r, init_type in enumerate(INIT_TYPES):
             for c, step in enumerate(SNAPSHOT_STEPS):
-                z_snap = snapshots[init_type][step]  # (n_chains, 512)
-                img    = _decode(z_snap[chain_idx:chain_idx+1], stylegan)[0]
-                axes[r, c].imshow(img)
+                z_snap       = snapshots[init_type][step]  # (n_chains, 512)
+                imgs, probs  = _decode(z_snap[chain_idx:chain_idx+1], stylegan, clf)
+                axes[r, c].imshow(imgs[0])
                 axes[r, c].axis('off')
+                _annotate_prob(axes[r, c], probs[0])
 
         plt.tight_layout()
         out_path = os.path.join(base_dir, f'init_grid_{chain_idx}.png')
@@ -86,7 +95,7 @@ def plot_stepsize_grid():
     snapshots = torch.load(snap_path, weights_only=False)
 
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    stylegan, _, _ = load_models(attribute, device)
+    stylegan, clf, _ = load_models(attribute, device)
 
     step_sizes = sorted(snapshots.keys())
     col_labels = [f'Step {s}' for s in SNAPSHOT_STEPS]
@@ -97,10 +106,11 @@ def plot_stepsize_grid():
 
     for r, dt in enumerate(step_sizes):
         for c, step in enumerate(SNAPSHOT_STEPS):
-            z_snap = snapshots[dt][step]  # (3, 512)
-            img    = _decode(z_snap[:1], stylegan)[0]  # chain 0
-            axes[r, c].imshow(img)
+            z_snap      = snapshots[dt][step]       # (3, 512)
+            imgs, probs = _decode(z_snap[:1], stylegan, clf)  # chain 0
+            axes[r, c].imshow(imgs[0])
             axes[r, c].axis('off')
+            _annotate_prob(axes[r, c], probs[0])
 
     plt.tight_layout()
     out_path = os.path.join(base_dir, 'stepsize_grid.png')
