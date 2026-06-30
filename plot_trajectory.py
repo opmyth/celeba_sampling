@@ -59,20 +59,24 @@ def plot_init_grid(attribute):
     row_labels = INIT_TYPES
     title      = f'{attribute} — MALA trajectory by initialisation'
 
-    fig, axes = _make_grid(len(row_labels), len(col_labels), row_labels, col_labels, title)
+    n_chains = next(iter(next(iter(snapshots.values())).values())).shape[0]
 
-    for r, init_type in enumerate(INIT_TYPES):
-        for c, step in enumerate(SNAPSHOT_STEPS):
-            z_snap = snapshots[init_type][step]  # (3, 512)
-            img    = _decode(z_snap[:1], stylegan)[0]  # chain 0
-            axes[r, c].imshow(img)
-            axes[r, c].axis('off')
+    for chain_idx in range(n_chains):
+        fig, axes = _make_grid(len(row_labels), len(col_labels), row_labels, col_labels,
+                               f'{title} (chain {chain_idx})')
 
-    plt.tight_layout()
-    out_path = os.path.join(base_dir, 'init_grid.png')
-    plt.savefig(out_path, dpi=150, bbox_inches='tight')
-    plt.close()
-    print(f'Saved to {out_path}')
+        for r, init_type in enumerate(INIT_TYPES):
+            for c, step in enumerate(SNAPSHOT_STEPS):
+                z_snap = snapshots[init_type][step]  # (n_chains, 512)
+                img    = _decode(z_snap[chain_idx:chain_idx+1], stylegan)[0]
+                axes[r, c].imshow(img)
+                axes[r, c].axis('off')
+
+        plt.tight_layout()
+        out_path = os.path.join(base_dir, f'init_grid_{chain_idx}.png')
+        plt.savefig(out_path, dpi=150, bbox_inches='tight')
+        plt.close()
+        print(f'Saved to {out_path}')
 
 
 def plot_stepsize_grid():
