@@ -9,7 +9,7 @@ import numpy as np
 
 from model_loader import load_models
 
-SNAPSHOT_STEPS = [0, 200, 500, 1000, 2000, 3000]
+SNAPSHOT_STEPS = [0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000]
 INIT_TYPES     = ['random', 'cold', 'warm']
 
 
@@ -24,10 +24,8 @@ def _decode(z_batch, stylegan, clf=None):
 
 
 def _annotate_prob(ax, prob):
-    ax.text(0.5, 0.04, f'{prob:.3f}',
-            transform=ax.transAxes, ha='center', va='bottom',
-            fontsize=7, color='white',
-            bbox=dict(boxstyle='round,pad=0.2', facecolor='black', alpha=0.55, linewidth=0))
+    color = 'green' if prob > 0.7 else 'red' if prob < 0.3 else 'orange'
+    ax.set_title(f'{prob:.2f}', fontsize=10, color=color, pad=3, fontweight='bold')
 
 
 def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
@@ -41,7 +39,8 @@ def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
         axes = axes[:, np.newaxis]
 
     for c, label in enumerate(col_labels):
-        axes[0, c].set_title(label, fontsize=8, pad=4)
+        axes[0, c].text(0.5, 1.13, label, transform=axes[0, c].transAxes,
+                        ha='center', va='bottom', fontsize=8)
 
     for r, label in enumerate(row_labels):
         axes[r, 0].text(
@@ -55,8 +54,9 @@ def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
     return fig, axes
 
 
-def plot_init_grid(attribute):
-    base_dir  = os.path.join('experiments', attribute, 'trajectory')
+def plot_init_grid(attribute, noise='same'):
+    noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
+    base_dir  = os.path.join('experiments', attribute, 'trajectory', noise_dir)
     snap_path = os.path.join(base_dir, 'init_snapshots.pt')
     snapshots = torch.load(snap_path, weights_only=False)
 
@@ -123,11 +123,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--plot',      required=True, choices=['init', 'stepsize'])
     parser.add_argument('--attribute', help='required for --plot init')
+    parser.add_argument('--noise',     choices=['same', 'indep'], default='same',
+                        help='which noise subdirectory to load from (same_noise / indep_noise)')
     args = parser.parse_args()
 
     if args.plot == 'init':
         if not args.attribute:
             parser.error('--attribute is required for --plot init')
-        plot_init_grid(args.attribute)
+        plot_init_grid(args.attribute, noise=args.noise)
     else:
         plot_stepsize_grid()

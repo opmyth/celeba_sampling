@@ -17,7 +17,7 @@ MALA_DT = {
     'bald':       0.1,
 }
 
-SNAPSHOT_STEPS = {0, 200, 500, 1000, 2000, 3000}
+SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}
 N_CHAINS    = 3
 N_STEPS     = 3000
 N_CANDIDATES = 10000
@@ -25,6 +25,9 @@ N_CANDIDATES = 10000
 parser = argparse.ArgumentParser()
 parser.add_argument('--attribute', required=True, choices=list(MALA_DT.keys()))
 parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--noise', choices=['same', 'indep'], default='same',
+                    help='same: reset seed before each run_mala (shared noise); '
+                         'indep: no reset (independent noise per init type)')
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -99,10 +102,12 @@ for init_type in ['random', 'cold', 'warm']:
     print(f'\n=== init: {init_type} ===', flush=True)
     torch.manual_seed(args.seed)
     z0 = get_init_z(init_type)
-    torch.manual_seed(args.seed) 
+    if args.noise == 'same':
+        torch.manual_seed(args.seed)   # same noise sequence for all init types
     snapshots[init_type] = run_mala(z0)
 
-out_dir  = os.path.join('experiments', args.attribute, 'trajectory')
+noise_dir = 'same_noise' if args.noise == 'same' else 'indep_noise'
+out_dir  = os.path.join('experiments', args.attribute, 'trajectory', noise_dir)
 os.makedirs(out_dir, exist_ok=True)
 out_path = os.path.join(out_dir, 'init_snapshots.pt')
 torch.save(snapshots, out_path)
