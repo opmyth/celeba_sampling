@@ -88,8 +88,7 @@ def plot_init_grid(attribute, noise='same'):
         print(f'Saved to {out_path}')
 
 
-def plot_stepsize_grid():
-    attribute = 'eyeglasses'
+def plot_stepsize_grid(attribute='eyeglasses'):
     base_dir  = os.path.join('experiments', attribute, 'trajectory')
     snap_path = os.path.join(base_dir, 'stepsize_snapshots.pt')
     snapshots = torch.load(snap_path, weights_only=False)
@@ -100,7 +99,7 @@ def plot_stepsize_grid():
     step_sizes = sorted(snapshots.keys())
     col_labels = [f'Step {s}' for s in SNAPSHOT_STEPS]
     row_labels = [f'dt={dt}' for dt in step_sizes]
-    title      = 'eyeglasses — ULA trajectory by step size'
+    title      = f'{attribute} — MALA trajectory by step size'
 
     fig, axes = _make_grid(len(row_labels), len(col_labels), row_labels, col_labels, title)
 
@@ -132,4 +131,6 @@ if __name__ == '__main__':
             parser.error('--attribute is required for --plot init')
         plot_init_grid(args.attribute, noise=args.noise)
     else:
-        plot_stepsize_grid()
+        if not args.attribute:
+            parser.error('--attribute is required for --plot stepsize')
+        plot_stepsize_grid(args.attribute)

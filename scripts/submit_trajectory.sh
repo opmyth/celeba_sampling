@@ -2,9 +2,9 @@
 #SBATCH --job-name=trajectory
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:h200_3g.71gb:1
-#SBATCH --nodelist=saxa
-#SBATCH --time=04:00:00
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
+#SBATCH --nodelist=landonia11
+#SBATCH --time=08:00:00
 #SBATCH --output=logs/trajectory-%j.out
 #SBATCH --error=logs/trajectory-%j.err
 
@@ -19,25 +19,28 @@ export PYTHONPATH=~/celeba_sampling:$PYTHONPATH
 cd ~/celeba_sampling
 mkdir -p logs
 
-echo "=== [1/7] smile — same noise ==="
+echo "=== [1/8] smile — same noise ==="
 python run_trajectory_init.py --attribute smile --noise same
 
-echo "=== [2/7] smile — indep noise ==="
+echo "=== [2/8] smile — indep noise ==="
 python run_trajectory_init.py --attribute smile --noise indep
 
-echo "=== [3/7] eyeglasses — same noise ==="
+echo "=== [3/8] eyeglasses — same noise ==="
 python run_trajectory_init.py --attribute eyeglasses --noise same
 
-echo "=== [4/7] eyeglasses — indep noise ==="
+echo "=== [4/8] eyeglasses — indep noise ==="
 python run_trajectory_init.py --attribute eyeglasses --noise indep
 
-echo "=== [5/7] bald — same noise ==="
+echo "=== [5/8] bald — same noise ==="
 python run_trajectory_init.py --attribute bald --noise same
 
-echo "=== [6/7] bald — indep noise ==="
+echo "=== [6/8] bald — indep noise ==="
 python run_trajectory_init.py --attribute bald --noise indep
 
-echo "=== [7/7] step size sweep (MALA, eyeglasses) ==="
-python run_trajectory_stepsize.py
+echo "=== [7/8] step size sweep (MALA, eyeglasses) ==="
+python run_trajectory_stepsize.py --attribute eyeglasses
+
+echo "=== [8/8] step size sweep (MALA, bald) ==="
+python run_trajectory_stepsize.py --attribute bald
 
 echo "All trajectory runs done."

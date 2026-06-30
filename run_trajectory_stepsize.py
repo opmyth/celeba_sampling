@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from tqdm import tqdm
 
+import argparse
 from model_loader import load_models
 from utils import grad_and_log_posterior_celeba
 
@@ -14,13 +15,16 @@ STEP_SIZES     = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.0000
 SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}
 N_CHAINS       = 3
 N_STEPS        = 3000
-ATTRIBUTE      = 'eyeglasses'
 SEED           = 42
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--attribute', required=True, choices=['smile', 'eyeglasses', 'bald'])
+args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {device}', flush=True)
 
-stylegan, clf, _ = load_models(ATTRIBUTE, device)
+stylegan, clf, _ = load_models(args.attribute, device)
 print('Compiling models...', flush=True)
 clf        = torch.compile(clf)
 stylegan.G = torch.compile(stylegan.G)
@@ -66,7 +70,7 @@ for dt in STEP_SIZES:
     print(f'\n=== MALA dt={dt} ===', flush=True)
     snapshots[dt] = run_mala(dt)
 
-out_dir  = os.path.join('experiments', ATTRIBUTE, 'trajectory')
+out_dir  = os.path.join('experiments', args.attribute, 'trajectory')
 os.makedirs(out_dir, exist_ok=True)
 out_path = os.path.join(out_dir, 'stepsize_snapshots.pt')
 torch.save(snapshots, out_path)
