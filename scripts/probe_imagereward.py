@@ -6,16 +6,36 @@ import torch
 import torch.nn.functional as F
 from model_loader import load_models
 
-# monkey-patch functions moved out of transformers.modeling_utils in newer versions
-import transformers.modeling_utils as _mu
-from transformers.pytorch_utils import (
-    apply_chunking_to_forward,
-    find_pruneable_heads_and_indices,
-    prune_linear_layer,
-)
-for _fn in [apply_chunking_to_forward, find_pruneable_heads_and_indices, prune_linear_layer]:
-    if not hasattr(_mu, _fn.__name__):
-        setattr(_mu, _fn.__name__, _fn)
+# stub functions removed from transformers.modeling_utils in newer versions
+import torch, transformers.modeling_utils as _mu
+
+def _apply_chunking_to_forward(forward_fn, chunk_size, chunk_dim, *input_tensors):
+    if chunk_size > 0:
+        chunks = [t.split(chunk_size, dim=chunk_dim) for t in input_tensors]
+        return torch.cat([forward_fn(*c) for c in zip(*chunks)], dim=chunk_dim)
+    return forward_fn(*input_tensors)
+
+def _find_pruneable_heads_and_indices(heads, n_heads, head_size, already_pruned):
+    mask = torch.ones(n_heads, head_size)
+    heads = set(heads) - already_pruned
+    for head in heads:
+        mask[head] = 0
+    mask = mask.view(-1).contiguous().eq(1)
+    index = torch.arange(len(mask))[mask].long()
+    return heads, index
+
+def _prune_linear_layer(layer, index, dim=0):
+    W = layer.weight.index_select(dim, index).clone().detach()
+    b = layer.bias.index_select(0, index).clone().detach() if layer.bias is not None else None
+    new = torch.nn.Linear(W.size(1), W.size(0), bias=b is not None).to(layer.weight.device)
+    new.weight, new.bias = torch.nn.Parameter(W), torch.nn.Parameter(b) if b is not None else None
+    return new
+
+for _name, _fn in [('apply_chunking_to_forward', _apply_chunking_to_forward),
+                   ('find_pruneable_heads_and_indices', _find_pruneable_heads_and_indices),
+                   ('prune_linear_layer', _prune_linear_layer)]:
+    if not hasattr(_mu, _name):
+        setattr(_mu, _name, _fn)
 
 import ImageReward as RM
 
