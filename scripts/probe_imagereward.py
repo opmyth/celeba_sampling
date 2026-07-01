@@ -6,11 +6,16 @@ import torch
 import torch.nn.functional as F
 from model_loader import load_models
 
-# monkey-patch removed transformers function before importing ImageReward
+# monkey-patch functions moved out of transformers.modeling_utils in newer versions
 import transformers.modeling_utils as _mu
-if not hasattr(_mu, 'apply_chunking_to_forward'):
-    from transformers.pytorch_utils import apply_chunking_to_forward
-    _mu.apply_chunking_to_forward = apply_chunking_to_forward
+from transformers.pytorch_utils import (
+    apply_chunking_to_forward,
+    find_pruneable_heads_and_indices,
+    prune_linear_layer,
+)
+for _fn in [apply_chunking_to_forward, find_pruneable_heads_and_indices, prune_linear_layer]:
+    if not hasattr(_mu, _fn.__name__):
+        setattr(_mu, _fn.__name__, _fn)
 
 import ImageReward as RM
 
