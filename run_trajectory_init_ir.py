@@ -10,7 +10,7 @@ from model_loader import load_models
 from utils import load_imagereward, tokenize_prompt, grad_and_log_posterior_ir, log_posterior_ir
 
 PROMPT      = "a bald man"
-MALA_DT     = 0.1     # update after step-size sweep
+MALA_DT     = 0.05    # from sweep: 56.8% accept rate
 SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}
 N_CHAINS     = 3
 N_STEPS      = 3000

@@ -15,6 +15,7 @@ MALA_DT = {
     'smile':      0.1,
     'eyeglasses': 0.05,
     'bald':       0.1,
+    'male':       0.1,   # TODO: update after step-size sweep
 }
 
 SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}

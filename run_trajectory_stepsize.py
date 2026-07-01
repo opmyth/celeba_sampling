@@ -18,7 +18,7 @@ N_STEPS        = 3000
 SEED           = 42
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--attribute', required=True, choices=['smile', 'eyeglasses', 'bald'])
+parser.add_argument('--attribute', required=True, choices=['smile', 'eyeglasses', 'bald', 'male'])
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

@@ -19,6 +19,9 @@ export PYTHONPATH=~/celeba_sampling:$PYTHONPATH
 cd ~/celeba_sampling
 mkdir -p logs
 
+JOB_START=$(date +%s)
+echo "Job started: $(date)"
+
 echo "=== [1/8] smile — same noise ==="
 python run_trajectory_init.py --attribute smile --noise same
 
@@ -43,4 +46,5 @@ python run_trajectory_stepsize.py --attribute eyeglasses
 echo "=== [8/8] step size sweep (MALA, bald) ==="
 python run_trajectory_stepsize.py --attribute bald
 
-echo "All trajectory runs done."
+JOB_END=$(date +%s)
+echo "Job finished: $(date) — Total: $(( (JOB_END - JOB_START) / 60 )) min"
