@@ -5,6 +5,13 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'
 import torch
 import torch.nn.functional as F
 from model_loader import load_models
+
+# monkey-patch removed transformers function before importing ImageReward
+import transformers.modeling_utils as _mu
+if not hasattr(_mu, 'apply_chunking_to_forward'):
+    from transformers.pytorch_utils import apply_chunking_to_forward
+    _mu.apply_chunking_to_forward = apply_chunking_to_forward
+
 import ImageReward as RM
 
 PROMPT = "a bald man"
