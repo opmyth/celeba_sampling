@@ -6,6 +6,11 @@ import torch
 import torch.nn.functional as F
 from model_loader import load_models
 
+# block ImageReward.ReFL (pulls in diffusers which conflicts with transformers version)
+from types import ModuleType as _ModuleType
+import sys as _sys
+_sys.modules['ImageReward.ReFL'] = _ModuleType('ImageReward.ReFL')
+
 # stub functions removed from transformers.modeling_utils in newer versions
 import torch, transformers.modeling_utils as _mu
 
