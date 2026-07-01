@@ -112,6 +112,7 @@ def load_imagereward(device):
     model = RM.load("ImageReward-v1.0", device=str(device))
     model.eval()
     model.requires_grad_(False)
+    model.blip = torch.compile(model.blip)
     return model
 
 _BLIP_MEAN = torch.tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1)
@@ -128,7 +129,7 @@ def tokenize_prompt(reward_model, prompt, device, n):
     ).to(device)
     return inp.input_ids.expand(n, -1).contiguous(), inp.attention_mask.expand(n, -1).contiguous()
 
-def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=8):
+def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=32):
     """MALA gradient for IR posterior: log p = -||z||²/2 + IR(G(z), prompt).
     IR is a Bradley-Terry reward used directly as log-energy (no sigmoid squashing)."""
     z = z.detach().requires_grad_(True)

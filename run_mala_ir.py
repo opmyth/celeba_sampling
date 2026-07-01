@@ -15,9 +15,9 @@ from utils import (load_imagereward, tokenize_prompt,
 PROMPT   = "a bald man"
 DT_MALA  = 0.05   # from step-size sweep (56.8% accept, closest to 57% optimal)
 N_CHAINS = 100
-N_STEPS  = 3000
-BURNIN   = 1000
-THIN_K   = 200
+N_STEPS  = 1000
+BURNIN   = 200
+THIN_K   = 80
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_trials',    type=int, default=5)
