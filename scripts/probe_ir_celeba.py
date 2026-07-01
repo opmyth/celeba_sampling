@@ -57,3 +57,17 @@ print(f'Min    : {scores.min().item():.4f}')
 print(f'Max    : {scores.max().item():.4f}')
 print(f'Scores : {[round(s, 3) for s in scores.tolist()]}')
 print(f'\nRandom prior baseline: mean=-1.85, range=[-2.25, -0.33]')
+
+import matplotlib.pyplot as plt
+imgs_np = imgs.cpu().numpy().transpose(0, 2, 3, 1)
+fig, axes = plt.subplots(2, 5, figsize=(15, 7))
+for i, ax in enumerate(axes.flat):
+    ax.imshow(imgs_np[i])
+    ax.axis('off')
+    s = scores[i].item()
+    ax.set_title(f'{s:.3f}', fontsize=10, color='green' if s > 0 else 'red')
+fig.suptitle(f'ImageReward scores — "{PROMPT}" (real CelebA bald=1)', fontsize=12)
+plt.tight_layout()
+out = os.path.join(os.path.dirname(__file__), '..', 'imagereward_celeba_bald.png')
+plt.savefig(out, dpi=120, bbox_inches='tight')
+print(f'Saved grid to {os.path.abspath(out)}')
