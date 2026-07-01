@@ -24,17 +24,30 @@ mkdir -p logs experiments/bald_ir
 
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 
-echo "=== [1/2] Rejection Sampling (IR) ==="
+echo "=== [1/3] Rejection Sampling (IR) ==="
 python run_rs_ir.py \
     --n_chains 100 \
     --n_trials 5 \
     --output_path experiments/bald_ir/results_rs_ir.pt
 
-echo "=== [2/2] MALA (IR) ==="
+echo "=== [2/3] MALA (IR) ==="
 python run_mala_ir.py \
     --n_trials 5 \
-    --rs_path experiments/bald_ir/results_rs_ir.pt \
+    --rs_path   experiments/bald_ir/results_rs_ir.pt \
     --output_path experiments/bald_ir/results_mala_ir.pt
+
+echo "=== [3/3] Gaussian MH (IR) ==="
+python run_gmh_ir.py \
+    --n_trials 5 \
+    --rs_path   experiments/bald_ir/results_rs_ir.pt \
+    --output_path experiments/bald_ir/results_gmh_ir.pt
+
+echo "=== Merging ==="
+python merge_results_ir.py \
+    --rs_path   experiments/bald_ir/results_rs_ir.pt \
+    --mala_path experiments/bald_ir/results_mala_ir.pt \
+    --gmh_path  experiments/bald_ir/results_gmh_ir.pt \
+    --output_path experiments/bald_ir/results_merged_ir.pt
 
 JOB_END=$(date +%s)
 echo "Job finished: $(date) — Total: $(( (JOB_END - JOB_START) / 60 )) min"

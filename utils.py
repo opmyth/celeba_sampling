@@ -129,7 +129,8 @@ def tokenize_prompt(reward_model, prompt, device, n):
     return inp.input_ids.expand(n, -1).contiguous(), inp.attention_mask.expand(n, -1).contiguous()
 
 def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=8):
-    """MALA gradient for IR posterior: log p = -||z||²/2 + log σ(IR(G(z), prompt))."""
+    """MALA gradient for IR posterior: log p = -||z||²/2 + IR(G(z), prompt).
+    IR is a Bradley-Terry reward used directly as log-energy (no sigmoid squashing)."""
     z = z.detach().requires_grad_(True)
     log_p_list = []
     for start in range(0, z.size(0), chunk_size):
@@ -140,7 +141,7 @@ def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask
         scores = reward_model.score_gard(
             prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
         ).squeeze(-1)
-        log_p_chunk = -0.5 * (z_chunk ** 2).sum(dim=1) + F.logsigmoid(scores)
+        log_p_chunk = -0.5 * (z_chunk ** 2).sum(dim=1) + scores
         log_p_chunk.sum().backward()
         log_p_list.append(log_p_chunk.detach())
     return z.grad.clone(), torch.cat(log_p_list)
@@ -157,7 +158,7 @@ def log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_s
             scores = reward_model.score_gard(
                 prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
             ).squeeze(-1)
-            log_p_list.append(-0.5 * (z_chunk ** 2).sum(dim=1) + F.logsigmoid(scores))
+            log_p_list.append(-0.5 * (z_chunk ** 2).sum(dim=1) + scores)
     return torch.cat(log_p_list)
 
 def compute_male_fraction(model, male_clf, z_samples):
