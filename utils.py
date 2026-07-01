@@ -104,6 +104,62 @@ def compute_diversity(z_samples):
 def compute_diversity_cov(z_samples):
     return torch.trace(torch.cov(z_samples.T)).item()
 
+def load_imagereward(device):
+    from types import ModuleType
+    import sys
+    sys.modules.setdefault('ImageReward.ReFL', ModuleType('ImageReward.ReFL'))
+    import ImageReward as RM
+    model = RM.load("ImageReward-v1.0", device=str(device))
+    model.eval()
+    model.requires_grad_(False)
+    return model
+
+_BLIP_MEAN = torch.tensor([0.48145466, 0.4578275, 0.40821073]).view(1, 3, 1, 1)
+_BLIP_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1)
+
+def _preprocess_for_blip(imgs, device):
+    imgs_01 = (imgs + 1) / 2
+    imgs_224 = F.interpolate(imgs_01, size=(224, 224), mode='bicubic', align_corners=False)
+    return (imgs_224 - _BLIP_MEAN.to(device)) / _BLIP_STD.to(device)
+
+def tokenize_prompt(reward_model, prompt, device, n):
+    inp = reward_model.blip.tokenizer(
+        prompt, padding='max_length', truncation=True, max_length=35, return_tensors='pt'
+    ).to(device)
+    return inp.input_ids.expand(n, -1).contiguous(), inp.attention_mask.expand(n, -1).contiguous()
+
+def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=8):
+    """MALA gradient for IR posterior: log p = -||z||²/2 + log σ(IR(G(z), prompt))."""
+    z = z.detach().requires_grad_(True)
+    log_p_list = []
+    for start in range(0, z.size(0), chunk_size):
+        z_chunk = z[start:start + chunk_size]
+        B = z_chunk.size(0)
+        imgs = stylegan.G(z_chunk, None)
+        imgs_blip = _preprocess_for_blip(imgs, z.device)
+        scores = reward_model.score_gard(
+            prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
+        ).squeeze(-1)
+        log_p_chunk = -0.5 * (z_chunk ** 2).sum(dim=1) + F.logsigmoid(scores)
+        log_p_chunk.sum().backward()
+        log_p_list.append(log_p_chunk.detach())
+    return z.grad.clone(), torch.cat(log_p_list)
+
+def log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=32):
+    """No-grad version for RS acceptance and diagnostics."""
+    log_p_list = []
+    with torch.no_grad():
+        for start in range(0, z.size(0), chunk_size):
+            z_chunk = z[start:start + chunk_size]
+            B = z_chunk.size(0)
+            imgs = stylegan.G(z_chunk, None)
+            imgs_blip = _preprocess_for_blip(imgs, z.device)
+            scores = reward_model.score_gard(
+                prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
+            ).squeeze(-1)
+            log_p_list.append(-0.5 * (z_chunk ** 2).sum(dim=1) + F.logsigmoid(scores))
+    return torch.cat(log_p_list)
+
 def compute_male_fraction(model, male_clf, z_samples):
     with torch.no_grad():
         imgs = model(z_samples)
