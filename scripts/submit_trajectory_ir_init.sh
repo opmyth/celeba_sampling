@@ -3,7 +3,7 @@
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
 #SBATCH --gres=gpu:1
-#SBATCH --nodelist=damnii[07-12]
+#SBATCH --exclude=opencast
 #SBATCH --time=03:00:00
 #SBATCH --output=logs/traj_ir_init-%j.out
 #SBATCH --error=logs/traj_ir_init-%j.err
