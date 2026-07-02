@@ -24,9 +24,11 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
 stylegan, clf_eye, clf_male = load_models('eyeglasses', device)
-clf_eye    = torch.compile(clf_eye)
-clf_male   = torch.compile(clf_male)
-stylegan.G = torch.compile(stylegan.G)
+clf_eye  = torch.compile(clf_eye)
+clf_male = torch.compile(clf_male)
+# stylegan.G intentionally NOT compiled: compile caches requires_grad state,
+# causing crashes when switching between grad_log_p (requires_grad=True) and
+# log_p_no_grad (no_grad context) for cold/warm init scanning.
 print('Models loaded.', flush=True)
 
 noise_scale = np.sqrt(2 * MALA_DT)
