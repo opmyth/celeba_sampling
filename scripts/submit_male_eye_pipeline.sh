@@ -24,18 +24,13 @@ mkdir -p logs experiments/male_eye
 
 nvidia-smi --query-gpu=name,memory.total,memory.free --format=csv,noheader
 
-echo "=== [1/3] Rejection Sampling ==="
-python run_rs_male_eye.py \
-    --n_chains 100 --n_trials 5 \
-    --output_path experiments/male_eye/results_rs.pt
-
-echo "=== [2/3] MALA ==="
+echo "=== [1/2] MALA ==="
 python run_mala_male_eye.py \
     --n_trials 5 \
     --rs_path   experiments/male_eye/results_rs.pt \
     --output_path experiments/male_eye/results_mala.pt
 
-echo "=== [3/3] Gaussian MH ==="
+echo "=== [2/2] Gaussian MH ==="
 python run_gmh_male_eye.py \
     --n_trials 5 \
     --rs_path   experiments/male_eye/results_rs.pt \

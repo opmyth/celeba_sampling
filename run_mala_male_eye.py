@@ -47,12 +47,16 @@ def grad_log_p(z):
     log_p.sum().backward()
     return z.grad.clone(), log_p.detach()
 
-def log_p(z):
-    with torch.no_grad():
-        imgs  = stylegan.G(z, None)
-        return (-0.5 * (z ** 2).sum(1)
-                + F.logsigmoid(clf_male(imgs).squeeze(-1))
-                + F.logsigmoid(clf_eye(imgs).squeeze(-1)))
+def log_p(z, chunk_size=64):
+    results = []
+    for i in range(0, z.size(0), chunk_size):
+        zc = z[i:i+chunk_size]
+        with torch.no_grad():
+            imgs = stylegan.G(zc, None)
+            results.append(-0.5 * (zc**2).sum(1)
+                           + F.logsigmoid(clf_male(imgs).squeeze(-1))
+                           + F.logsigmoid(clf_eye(imgs).squeeze(-1)))
+    return torch.cat(results)
 
 samples_list, w2_values, avg_log_reward, accept_rates = [], [], [], []
 
