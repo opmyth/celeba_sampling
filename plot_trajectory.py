@@ -58,9 +58,9 @@ def plot_init_grid(attribute, noise='same'):
     noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
     base_dir  = os.path.join('experiments', attribute, 'trajectory', noise_dir)
     snap_path = os.path.join(base_dir, 'init_snapshots.pt')
-    snapshots = torch.load(snap_path, weights_only=False)
+    snapshots = torch.load(snap_path, weights_only=False, map_location='cpu')
 
-    device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device   = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
     stylegan, clf, _ = load_models(attribute, device)
 
     col_labels = [f'Step {s}' for s in SNAPSHOT_STEPS]
@@ -91,9 +91,9 @@ def plot_init_grid(attribute, noise='same'):
 def plot_stepsize_grid(attribute='eyeglasses'):
     base_dir  = os.path.join('experiments', attribute, 'trajectory')
     snap_path = os.path.join(base_dir, 'stepsize_snapshots.pt')
-    snapshots = torch.load(snap_path, weights_only=False)
+    snapshots = torch.load(snap_path, weights_only=False, map_location='cpu')
 
-    device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device   = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
     stylegan, clf, _ = load_models(attribute, device)
 
     step_sizes = sorted(snapshots.keys())

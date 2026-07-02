@@ -12,12 +12,14 @@ _STYLEGAN_PKL = 'stylegan2_celeba.pkl'
 def load_models(attr_name, device):
     clf = classifier().to(device)
     clf.load_state_dict(torch.load(
-        os.path.join(_HERE, 'clf_checkpoints', f'{attr_name}_clf_aug.pth'), weights_only=False))
+        os.path.join(_HERE, 'clf_checkpoints', f'{attr_name}_clf_aug.pth'),
+        weights_only=False, map_location=device))
     clf.eval()
 
     male_clf = classifier().to(device)
     male_clf.load_state_dict(torch.load(
-        os.path.join(_HERE, 'clf_checkpoints', 'male_clf_aug.pth'), weights_only=False))
+        os.path.join(_HERE, 'clf_checkpoints', 'male_clf_aug.pth'),
+        weights_only=False, map_location=device))
     male_clf.eval()
 
     ckpt_path = os.path.join(_HERE, 'stylegan2_checkpoints', _STYLEGAN_PKL)
