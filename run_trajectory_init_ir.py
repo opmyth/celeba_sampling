@@ -7,7 +7,7 @@ import argparse, torch, numpy as np
 from tqdm import tqdm
 
 from model_loader import load_models
-from utils import load_imagereward, tokenize_prompt, grad_and_log_posterior_ir, log_posterior_ir
+from utils import load_imagereward, tokenize_prompt, grad_and_log_posterior_ir, _preprocess_for_blip
 
 PROMPT      = "a bald man"
 MALA_DT     = 0.05    # from sweep: 56.8% accept rate
@@ -25,7 +25,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
 stylegan, _, _ = load_models('bald', device)
-stylegan.G     = torch.compile(stylegan.G)
+# stylegan.G intentionally NOT compiled: compile caches requires_grad state,
+# causing crashes when switching between grad (MALA) and no_grad (init scan).
 reward_model   = load_imagereward(device)
 print('Models loaded.', flush=True)
 
@@ -36,14 +37,17 @@ noise_scale = np.sqrt(2 * MALA_DT)
 def get_init_z(init_type):
     if init_type == 'random':
         return torch.randn(N_CHAINS, stylegan.latent_dim, device=device)
+    torch.cuda.empty_cache()
     print(f'  scanning {N_CANDIDATES} candidates for {init_type} init...', flush=True)
-    batch = 512
     scores, zs = [], []
-    for start in range(0, N_CANDIDATES, batch):
-        size   = min(batch, N_CANDIDATES - start)
+    for start in range(0, N_CANDIDATES, 32):
+        size   = min(32, N_CANDIDATES - start)
         z_cand = torch.randn(size, stylegan.latent_dim, device=device)
         p_ids, p_mask = tokenize_prompt(reward_model, PROMPT, device, size)
-        s = log_posterior_ir(z_cand, stylegan, reward_model, p_ids, p_mask)
+        with torch.no_grad():
+            imgs      = stylegan.G(z_cand, None)
+            imgs_blip = _preprocess_for_blip(imgs, device)
+            s = reward_model.score_gard(p_ids, p_mask, imgs_blip).squeeze(-1)
         scores.append(s.cpu())
         zs.append(z_cand.cpu())
     all_scores = torch.cat(scores)
