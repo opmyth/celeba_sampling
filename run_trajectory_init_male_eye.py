@@ -55,10 +55,11 @@ def grad_log_p(z):
 def get_init_z(init_type):
     if init_type == 'random':
         return torch.randn(N_CHAINS, stylegan.latent_dim, device=device)
+    torch.cuda.empty_cache()
     print(f'  scanning {N_CANDIDATES} candidates for {init_type} init...', flush=True)
     scores, zs = [], []
-    for start in range(0, N_CANDIDATES, 512):
-        size   = min(512, N_CANDIDATES - start)
+    for start in range(0, N_CANDIDATES, 64):
+        size   = min(64, N_CANDIDATES - start)
         z_cand = torch.randn(size, stylegan.latent_dim, device=device)
         scores.append(log_p_no_grad(z_cand).cpu())
         zs.append(z_cand.cpu())
