@@ -116,3 +116,6 @@ os.makedirs(out_dir, exist_ok=True)
 out_path  = os.path.join(out_dir, 'init_snapshots.pt')
 torch.save(snapshots, out_path)
 print(f'\nSaved to {out_path}', flush=True)
+
+from plot_trajectory_male_eye import plot_init_grid
+plot_init_grid(stylegan, clf_male, clf_eye, noise=args.noise)

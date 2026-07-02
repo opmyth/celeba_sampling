@@ -105,3 +105,7 @@ os.makedirs(out_dir, exist_ok=True)
 out_path  = os.path.join(out_dir, 'init_snapshots.pt')
 torch.save(snapshots, out_path)
 print(f'\nSaved to {out_path}', flush=True)
+
+from plot_trajectory_ir import plot_init_grid
+p_ids_1, p_mask_1 = tokenize_prompt(reward_model, PROMPT, device, 1)
+plot_init_grid(stylegan, reward_model, p_ids_1, p_mask_1, noise=args.noise)
