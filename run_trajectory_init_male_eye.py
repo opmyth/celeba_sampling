@@ -61,7 +61,11 @@ def get_init_z(init_type):
     for start in range(0, N_CANDIDATES, 64):
         size   = min(64, N_CANDIDATES - start)
         z_cand = torch.randn(size, stylegan.latent_dim, device=device)
-        scores.append(log_p_no_grad(z_cand).cpu())
+        with torch.no_grad():
+            imgs  = stylegan.G(z_cand, None)
+            score = (torch.sigmoid(clf_male(imgs)).squeeze(-1)
+                     * torch.sigmoid(clf_eye(imgs)).squeeze(-1))
+        scores.append(score.cpu())
         zs.append(z_cand.cpu())
     all_scores = torch.cat(scores)
     all_z      = torch.cat(zs)
