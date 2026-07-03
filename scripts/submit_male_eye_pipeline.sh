@@ -2,8 +2,8 @@
 #SBATCH --job-name=male_eye_pipeline
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:h200_3g.71gb:1
-#SBATCH --nodelist=saxa
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
+#SBATCH --exclude=opencast,landonia11,damnii07
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/male_eye_pipeline-%j.out
 #SBATCH --error=logs/male_eye_pipeline-%j.err
