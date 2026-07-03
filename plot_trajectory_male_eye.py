@@ -28,9 +28,14 @@ def _decode(z_batch, stylegan, clf_male, clf_eye):
 def _annotate(ax, p_male, p_eye):
     color_m = 'green' if p_male > 0.7 else ('red' if p_male < 0.3 else 'orange')
     color_e = 'green' if p_eye  > 0.7 else ('red' if p_eye  < 0.3 else 'orange')
-    ax.set_title(f'M:{p_male:.2f}', fontsize=7, color=color_m, pad=1, fontweight='bold')
-    ax.text(0.5, -0.08, f'E:{p_eye:.2f}', transform=ax.transAxes,
-            ha='center', va='top', fontsize=7, color=color_e, fontweight='bold')
+    ax.set_title(f'M:{p_male:.2f}  E:{p_eye:.2f}', fontsize=7, pad=1, fontweight='bold',
+                 color=color_m)  # fallback color; per-word coloring done below
+    # override with two-part colored title using annotate
+    ax.set_title('')
+    ax.annotate(f'M:{p_male:.2f}', xy=(0.3, 1.01), xycoords='axes fraction',
+                ha='right', va='bottom', fontsize=7, color=color_m, fontweight='bold')
+    ax.annotate(f'E:{p_eye:.2f}', xy=(0.7, 1.01), xycoords='axes fraction',
+                ha='left', va='bottom', fontsize=7, color=color_e, fontweight='bold')
 
 
 def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
@@ -112,13 +117,10 @@ if __name__ == '__main__':
     parser.add_argument('--noise', choices=['same', 'indep', 'both'], default='both')
     args = parser.parse_args()
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('mps' if torch.backends.mps.is_available() else 'cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Device: {device}', flush=True)
 
     stylegan, clf_eye, clf_male = load_models('eyeglasses', device)
-    stylegan.G = torch.compile(stylegan.G)
-    clf_male   = torch.compile(clf_male)
-    clf_eye    = torch.compile(clf_eye)
     print('Models loaded.', flush=True)
 
     if args.plot in ('stepsize', 'all'):

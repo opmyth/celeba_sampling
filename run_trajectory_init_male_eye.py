@@ -102,12 +102,14 @@ def run_mala(z_init):
 
 
 snapshots = {}
-for init_type in ['random', 'cold', 'warm']:
+for i, init_type in enumerate(['random', 'cold', 'warm']):
     print(f'\n=== init: {init_type} ===', flush=True)
     torch.manual_seed(args.seed)
     z0 = get_init_z(init_type)
     if args.noise == 'same':
-        torch.manual_seed(args.seed)
+        torch.manual_seed(args.seed)          # all chains share same noise
+    else:
+        torch.manual_seed(args.seed + i + 1)  # each chain gets independent noise
     snapshots[init_type] = run_mala(z0)
 
 noise_dir = 'same_noise' if args.noise == 'same' else 'indep_noise'

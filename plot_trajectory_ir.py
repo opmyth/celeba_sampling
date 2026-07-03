@@ -53,8 +53,8 @@ def _make_grid(n_rows, n_cols, row_labels, col_labels, title, cell_size=2.4):
     return fig, axes
 
 
-def plot_stepsize_grid(stylegan, reward_model, prompt_ids, prompt_mask):
-    snap_path = os.path.join(BASE_DIR, 'stepsize_snapshots.pt')
+def plot_stepsize_grid(stylegan, reward_model, prompt_ids, prompt_mask, snap_file='stepsize_snapshots.pt'):
+    snap_path = os.path.join(BASE_DIR, snap_file)
     snapshots = torch.load(snap_path, weights_only=False)
 
     step_sizes = sorted(snapshots.keys())
@@ -73,7 +73,7 @@ def plot_stepsize_grid(stylegan, reward_model, prompt_ids, prompt_mask):
             _annotate(axes[r, c], scores[0])
 
     plt.tight_layout()
-    out_path = os.path.join(BASE_DIR, 'stepsize_grid.png')
+    out_path = os.path.join(BASE_DIR, snap_file.replace('.pt', '_grid.png'))
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f'Saved {out_path}')
