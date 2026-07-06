@@ -104,6 +104,16 @@ def compute_diversity(z_samples):
 def compute_diversity_cov(z_samples):
     return torch.trace(torch.cov(z_samples.T)).item()
 
+def compute_avg_log_reward(z_samples, model, clfs):
+    """Mean of sum of log σ(clf(G(z))) over all clfs. No prior term."""
+    chunk = model.max_batch_size
+    vals = []
+    with torch.no_grad():
+        for i in range(0, z_samples.size(0), chunk):
+            imgs = model(z_samples[i:i+chunk])
+            vals.append(sum(F.logsigmoid(clf(imgs).squeeze(-1)) for clf in clfs).cpu())
+    return torch.cat(vals).mean().item()
+
 def load_imagereward(device):
     from types import ModuleType
     import sys

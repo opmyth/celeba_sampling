@@ -8,11 +8,12 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from model_loader import load_models
+from utils import compute_avg_log_reward
 
 BATCH_SIZE = 64
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_chains',    type=int, default=100)
+parser.add_argument('--n_chains',    type=int, default=1000)
 parser.add_argument('--n_trials',    type=int, default=5)
 parser.add_argument('--seed',        type=int, default=321)
 parser.add_argument('--output_path', type=str, default='experiments/male_eye/results_rs.pt')
@@ -52,6 +53,10 @@ samples_list = list(torch.chunk(accepted, args.n_trials, dim=0))
 accept_rate  = n_needed / attempted
 print(f'RS done. Accept rate: {accept_rate:.4f}  ({n_needed}/{attempted})', flush=True)
 
+avg_log_reward = [compute_avg_log_reward(z.to(device), stylegan, [clf_male, clf_eye]) for z in samples_list]
+print(f'RS ALR: {sum(avg_log_reward)/len(avg_log_reward):.4f}', flush=True)
+
 os.makedirs(os.path.dirname(args.output_path), exist_ok=True)
-torch.save({'samples': samples_list, 'accept_rate': accept_rate}, args.output_path)
+torch.save({'samples': samples_list, 'accept_rate': accept_rate,
+            'avg_log_reward': avg_log_reward}, args.output_path)
 print(f'Saved to {args.output_path}')
