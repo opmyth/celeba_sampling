@@ -1,39 +1,35 @@
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'stylegan2-ada-pytorch'))
+
 import torch
 import numpy as np
+from model_loader import load_models
+from models import classifier
 from utils import compute_w2, compute_diversity_cov, compute_avg_log_reward
 
-rs   = torch.load('experiments/male_eye/results_rs.pt',   weights_only=False)
-mala = torch.load('experiments/male_eye/results_mala.pt', weights_only=False)
-gmh  = torch.load('experiments/male_eye/results_gmh.pt',  weights_only=False)
+device = torch.device('cuda' if torch.cuda.is_available() else
+                      'mps'  if torch.backends.mps.is_available() else 'cpu')
+print(f'Device: {device}')
 
-# W2: RS split in half; MALA/G_MH recomputed against new RS samples
-w2_rs   = [compute_w2(t[:len(t)//2], t[len(t)//2:]) for t in rs['samples']]
-w2_mala = [compute_w2(mala['samples'][i], rs['samples'][i]) for i in range(len(rs['samples']))]
-w2_gmh  = [compute_w2(gmh['samples'][i],  rs['samples'][i]) for i in range(len(rs['samples']))]
-print(f'RS   W2: {np.mean(w2_rs):.4f}±{np.std(w2_rs, ddof=1):.4f}')
-print(f'MALA W2: {np.mean(w2_mala):.4f}±{np.std(w2_mala, ddof=1):.4f}')
-print(f'G_MH W2: {np.mean(w2_gmh):.4f}±{np.std(w2_gmh, ddof=1):.4f}')
+stylegan, _, _ = load_models('smile', device)
+stylegan.eval()
 
-torch.save({'male_eye': {
-    'w2_values': {
-        'RS':   w2_rs,
-        'MALA': w2_mala,
-        'G_MH': w2_gmh,
-    },
-    'samples': {
-        'RS':   rs['samples'],
-        'MALA': mala['samples'],
-        'G_MH': gmh['samples'],
-    },
-    'avg_log_reward': {
-        'RS':   rs['avg_log_reward'],
-        'MALA': mala['avg_log_reward'],
-        'G_MH': gmh['avg_log_reward'],
-    },
-    'accept_rates': {
-        'MALA': mala['accept_rates'],
-        'G_MH': gmh['accept_rates'],
-    },
-    'rs_accept_rate': rs['accept_rate'],
-}}, 'experiments/male_eye/results_merged.pt')
-print('Merged saved to experiments/male_eye/results_merged.pt')
+male_clf = classifier().to(device)
+male_clf.load_state_dict(torch.load('clf_checkpoints/male_clf_aug.pth', weights_only=False, map_location=device))
+male_clf.eval()
+
+eye_clf = classifier().to(device)
+eye_clf.load_state_dict(torch.load('clf_checkpoints/eyeglasses_clf_aug.pth', weights_only=False, map_location=device))
+eye_clf.eval()
+
+merged = torch.load('experiments/male_eye/results_merged.pt', weights_only=False)
+d = merged['male_eye']
+
+alr = {}
+for s in ['RS', 'MALA', 'G_MH']:
+    alr[s] = [compute_avg_log_reward(z.to(device), stylegan, [male_clf, eye_clf]) for z in d['samples'][s]]
+    print(f'{s} ALR: {np.mean(alr[s]):.4f}±{np.std(alr[s], ddof=1):.4f}')
+
+d['avg_log_reward'] = alr
+torch.save(merged, 'experiments/male_eye/results_merged.pt')
+print('Saved.')
