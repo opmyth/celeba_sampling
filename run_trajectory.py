@@ -75,7 +75,8 @@ def run_mala_with_trace(dt, z_init, generator):
     samples, log_p_kept, accept_rate, _ = latent_MALA_celeba(
         posterior, N_CHAINS, args.n_steps, dt, stylegan.latent_dim, device,
         generator=generator, burnin=0, thin_k=1, z_init=z_init)
-    snaps = {step: samples[step].cpu() for step in SNAPSHOT_STEPS if step <= args.n_steps}
+    snaps = {step: samples[min(step, len(samples) - 1)].cpu()
+             for step in SNAPSHOT_STEPS if step <= args.n_steps}
     trace = {'z': torch.stack(samples).cpu(), 'log_p': torch.stack(log_p_kept).cpu()}
     print(f'  accept_rate={accept_rate:.1%}' if accept_rate is not None else '', flush=True)
     return snaps, trace
