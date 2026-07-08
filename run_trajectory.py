@@ -26,7 +26,7 @@ from utils import load_imagereward
 
 SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}
 STEP_SIZES     = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
-N_CHAINS       = 3
+N_CHAINS       = 1
 N_CANDIDATES   = 10000
 INIT_TYPES     = ['random', 'cold', 'warm']
 
