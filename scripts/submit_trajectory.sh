@@ -8,7 +8,7 @@
 #SBATCH --job-name=trajectory
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:h200_3g.71gb:1
 #SBATCH --nodelist=saxa
 #SBATCH --time=04:00:00
 #SBATCH --output=logs/trajectory-%j.out
