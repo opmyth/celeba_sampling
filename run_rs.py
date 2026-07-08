@@ -6,25 +6,34 @@ warnings.filterwarnings("ignore")
 
 import argparse, torch, time
 import numpy as np
-import torch.nn.functional as F
 import wandb
 
+import rng as rng_mod
+from config import EXPERIMENTS
 from model_loader import load_models
+from posteriors import classifier_posterior, imagereward_posterior
 from samplers import rejection_sampling
-from utils import compute_w2, compute_diversity, compute_male_fraction, compute_diversity_cov
+from utils import (compute_w2, compute_diversity, compute_diversity_cov,
+                    compute_male_fraction, load_imagereward)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--clf_name', type=str, required=True)
-parser.add_argument('--n_chains', type=int, default=100)
-parser.add_argument('--n_trials', type=int, default=10)
+parser.add_argument('--experiment', required=True, choices=list(EXPERIMENTS))
+parser.add_argument('--n_trials', type=int, default=None)
+parser.add_argument('--prompt', type=str, default=None,
+                     help='override the config default prompt (imagereward experiments only)')
 parser.add_argument('--seed', type=int, default=321)
-parser.add_argument('--output_path', type=str, default='results_rs.pt')
+parser.add_argument('--output_path', type=str, default=None)
 args = parser.parse_args()
+
+cfg = EXPERIMENTS[args.experiment]
+n_trials = args.n_trials or cfg.n_trials
+prompt = args.prompt or cfg.prompt
+output_path = args.output_path or f'experiments/{args.experiment}/results_rs.pt'
 
 wandb.init(
     project="dissertation-stylegan-sampling",
-    name=f"RS-{args.clf_name}-chains{args.n_chains}-trials{args.n_trials}",
-    group=f"{args.clf_name}_n{args.n_chains}_t{args.n_trials}",
+    name=f"RS-{args.experiment}-trials{n_trials}",
+    group=f"{args.experiment}_t{n_trials}",
     job_type="RS",
     config=vars(args),
 )
@@ -32,35 +41,31 @@ wandb.init(
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device {device}')
 
-stylegan, clf, male_clf = load_models(args.clf_name, device)
-torch.manual_seed(args.seed)
+stylegan, clfs, male_clf = load_models(cfg.clf_names or [], device)
+
+if cfg.kind == 'classifier':
+    posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
+    r_max = None
+else:
+    reward_model = load_imagereward(device)
+    posterior = imagereward_posterior(stylegan, reward_model, prompt, device)
+    r_max = posterior.estimate_r_max(2000, rng_mod.make_generator(args.seed, device))
+    print(f'r_max = {r_max:.4f}', flush=True)
 
 t = time.time()
-RS_samples = rejection_sampling(stylegan, clf, args.n_chains * args.n_trials * 2, device=device)
-print(f"RS done: {time.time()-t:.2f}s", flush=True)
+generator = rng_mod.make_generator(args.seed, device)
+RS_samples, accept_rate = rejection_sampling(
+    posterior, cfg.rs_target * n_trials * 2, stylegan.latent_dim, device, generator=generator)
+print(f"RS done: {time.time()-t:.2f}s  accept_rate={accept_rate:.4f}", flush=True)
 
-t = time.time()
-chunks = torch.chunk(RS_samples, args.n_trials * 2, dim=0)
-w2_baseline = [compute_w2(chunks[2*i], chunks[2*i+1]) for i in range(args.n_trials)]
+chunks = torch.chunk(RS_samples, n_trials * 2, dim=0)
+w2_baseline = [compute_w2(chunks[2 * i], chunks[2 * i + 1]) for i in range(n_trials)]
 rs_samples_list = list(chunks[::2])
-print(f"RS W2 baseline done: {time.time()-t:.2f}s", flush=True)
 
-t = time.time()
-with torch.no_grad():
-    avg_log_reward = [F.logsigmoid(clf(stylegan(rs_samples_list[i]))).mean().item() for i in range(args.n_trials)]
-print(f"avg_log_reward done: {time.time()-t:.2f}s", flush=True)
-
-t = time.time()
-diversity = [compute_diversity(rs_samples_list[i]) for i in range(args.n_trials)]
-print(f"diversity done: {time.time()-t:.2f}s", flush=True)
-
-t = time.time()
-diversity_trace_cov = [compute_diversity_cov(rs_samples_list[i]) for i in range(args.n_trials)]
-print(f"diversity_trace_cov done: {time.time()-t:.2f}s", flush=True)
-
-t = time.time()
-male_fraction = [compute_male_fraction(stylegan, male_clf, rs_samples_list[i]) for i in range(args.n_trials)]
-print(f"male_fraction done: {time.time()-t:.2f}s", flush=True)
+avg_log_reward = [posterior.reward_only_fn(z.to(device)).mean().item() for z in rs_samples_list]
+diversity = [compute_diversity(z) for z in rs_samples_list]
+diversity_trace_cov = [compute_diversity_cov(z) for z in rs_samples_list]
+male_fraction = [compute_male_fraction(stylegan, male_clf, z.to(device)) for z in rs_samples_list]
 
 wandb.log({
     "w2_baseline_mean": np.mean(w2_baseline),
@@ -73,8 +78,10 @@ wandb.log({
     "diversity_trace_cov_std": np.std(diversity_trace_cov, ddof=1),
     "male_fraction_mean": np.mean(male_fraction),
     "male_fraction_std": np.std(male_fraction, ddof=1),
+    "accept_rate": accept_rate,
 })
 
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
 torch.save({
     'samples': rs_samples_list,
     'w2_baseline': w2_baseline,
@@ -82,7 +89,10 @@ torch.save({
     'diversity': diversity,
     'diversity_trace_cov': diversity_trace_cov,
     'male_fraction': male_fraction,
-}, args.output_path)
+    'accept_rate': accept_rate,
+    'prompt': prompt if cfg.kind == 'imagereward' else None,
+    'r_max': r_max,
+}, output_path)
 
-print(f'RS results saved to {args.output_path}')
+print(f'RS results saved to {output_path}')
 wandb.finish()

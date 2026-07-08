@@ -9,41 +9,6 @@ from scipy.stats import wasserstein_distance_nd
 from scipy.stats import ttest_rel
 
 
-def log_posterior_celeba(z, model, clf):
-    chunk_size = model.max_batch_size
-    log_p_list = []
-    with torch.no_grad():
-        for start in range(0, z.size(0), chunk_size):
-            z_chunk = z[start:start + chunk_size]
-            imgs = model.G(z_chunk, None)
-            logits = clf(imgs).squeeze()
-            log_p_list.append(-0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits))
-    return torch.cat(log_p_list)
-
-def grad_log_posterior_celeba(z, model, clf):
-    z = z.detach().requires_grad_(True)
-    chunk_size = model.max_batch_size
-    for start in range(0, z.size(0), chunk_size):
-        z_chunk = z[start:start + chunk_size]
-        imgs = model.G(z_chunk, None)
-        logits = clf(imgs).squeeze()
-        posterior_chunk = (-0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits)).sum()
-        posterior_chunk.backward()
-    return z.grad.clone()
-
-def grad_and_log_posterior_celeba(z, model, clf):
-    z = z.detach().requires_grad_(True)
-    log_p_list = []
-    chunk_size = model.max_batch_size  # 64: backward() called per chunk so activations freed immediately
-    for start in range(0, z.size(0), chunk_size):
-        z_chunk = z[start:start + chunk_size]
-        imgs = model.G(z_chunk, None)
-        logits = clf(imgs).squeeze()
-        log_p_chunk = -0.5 * torch.sum(z_chunk**2, dim=1) + F.logsigmoid(logits)
-        log_p_chunk.sum().backward()
-        log_p_list.append(log_p_chunk.detach())
-    return z.grad.clone(), torch.cat(log_p_list)
-
 def compute_w2(samples_1, samples_2):
     samples_1_np = samples_1.detach().cpu().numpy()
     samples_2_np = samples_2.detach().cpu().numpy()
@@ -104,16 +69,6 @@ def compute_diversity(z_samples):
 def compute_diversity_cov(z_samples):
     return torch.trace(torch.cov(z_samples.T)).item()
 
-def compute_avg_log_reward(z_samples, model, clfs):
-    """Mean of sum of log σ(clf(G(z))) over all clfs. No prior term."""
-    chunk = model.max_batch_size
-    vals = []
-    with torch.no_grad():
-        for i in range(0, z_samples.size(0), chunk):
-            imgs = model(z_samples[i:i+chunk])
-            vals.append(sum(F.logsigmoid(clf(imgs).squeeze(-1)) for clf in clfs).cpu())
-    return torch.cat(vals).mean().item()
-
 def load_imagereward(device):
     from types import ModuleType
     import sys
@@ -138,39 +93,6 @@ def tokenize_prompt(reward_model, prompt, device, n):
         prompt, padding='max_length', truncation=True, max_length=35, return_tensors='pt'
     ).to(device)
     return inp.input_ids.expand(n, -1).contiguous(), inp.attention_mask.expand(n, -1).contiguous()
-
-def grad_and_log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=32):
-    """MALA gradient for IR posterior: log p = -||z||²/2 + IR(G(z), prompt).
-    IR is a Bradley-Terry reward used directly as log-energy (no sigmoid squashing)."""
-    z = z.detach().requires_grad_(True)
-    log_p_list = []
-    for start in range(0, z.size(0), chunk_size):
-        z_chunk = z[start:start + chunk_size]
-        B = z_chunk.size(0)
-        imgs = stylegan.G(z_chunk, None)
-        imgs_blip = _preprocess_for_blip(imgs, z.device)
-        scores = reward_model.score_gard(
-            prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
-        ).squeeze(-1)
-        log_p_chunk = -0.5 * (z_chunk ** 2).sum(dim=1) + scores
-        log_p_chunk.sum().backward()
-        log_p_list.append(log_p_chunk.detach())
-    return z.grad.clone(), torch.cat(log_p_list)
-
-def log_posterior_ir(z, stylegan, reward_model, prompt_ids, prompt_mask, chunk_size=32):
-    """No-grad version for RS acceptance and diagnostics."""
-    log_p_list = []
-    with torch.no_grad():
-        for start in range(0, z.size(0), chunk_size):
-            z_chunk = z[start:start + chunk_size]
-            B = z_chunk.size(0)
-            imgs = stylegan.G(z_chunk, None)
-            imgs_blip = _preprocess_for_blip(imgs, z.device)
-            scores = reward_model.score_gard(
-                prompt_ids[start:start + B], prompt_mask[start:start + B], imgs_blip
-            ).squeeze(-1)
-            log_p_list.append(-0.5 * (z_chunk ** 2).sum(dim=1) + scores)
-    return torch.cat(log_p_list)
 
 def compute_male_fraction(model, male_clf, z_samples):
     with torch.no_grad():
