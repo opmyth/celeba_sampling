@@ -8,8 +8,8 @@
 #SBATCH --job-name=trajectory
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:1
-#SBATCH --nodelist=landonia11,saxa
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
+#SBATCH --nodelist=landonia11
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/trajectory-%j.out
 #SBATCH --error=logs/trajectory-%j.err
