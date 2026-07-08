@@ -19,7 +19,6 @@ from model_loader import load_models
 from posteriors import classifier_posterior, imagereward_posterior
 from utils import load_imagereward
 
-SNAPSHOT_STEPS = [0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000]
 INIT_TYPES     = ['random', 'cold', 'warm']
 
 
@@ -27,11 +26,22 @@ def _slug(s):
     return s.lower().replace(' ', '_')
 
 
-def _trajectory_dir(cfg, experiment, prompt):
-    out_dir = os.path.join('experiments', experiment, 'trajectory')
-    if cfg.kind == 'imagereward' and prompt != cfg.prompt:
-        out_dir = os.path.join(out_dir, _slug(prompt))
-    return out_dir
+def _prompt_slug(cfg, prompt):
+    return f'prompt_{_slug(prompt)}' if cfg.kind == 'imagereward' else None
+
+
+def _stepsize_dir(cfg, experiment, prompt):
+    base = os.path.join('experiments', experiment, 'trajectory')
+    slug = _prompt_slug(cfg, prompt)
+    return os.path.join(base, slug) if slug else base
+
+
+def _init_dir(cfg, experiment, prompt, noise):
+    base = os.path.join('experiments', experiment, 'trajectory')
+    noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
+    d = os.path.join(base, noise_dir)
+    slug = _prompt_slug(cfg, prompt)
+    return os.path.join(d, slug) if slug else d
 
 
 def _build_posterior(cfg, stylegan, clfs, prompt, device):
@@ -96,11 +106,11 @@ def _load_models_and_posterior(experiment, prompt):
 
 def plot_stepsize_grid(experiment, prompt=None):
     cfg, prompt, stylegan, posterior = _load_models_and_posterior(experiment, prompt)
-    out_dir = _trajectory_dir(cfg, experiment, prompt)
+    out_dir = _stepsize_dir(cfg, experiment, prompt)
     snapshots = torch.load(os.path.join(out_dir, 'stepsize_snapshots.pt'), weights_only=False)
 
     step_sizes = sorted(snapshots.keys())
-    steps_present = [s for s in SNAPSHOT_STEPS if s in snapshots[step_sizes[0]]]
+    steps_present = sorted(snapshots[step_sizes[0]].keys())
     col_labels = [f'Step {s}' for s in steps_present]
     row_labels = [f'dt={dt}' for dt in step_sizes]
     title = f'{experiment} - MALA trajectory by step size'
@@ -122,12 +132,10 @@ def plot_stepsize_grid(experiment, prompt=None):
 
 def plot_init_grid(experiment, noise='same', prompt=None):
     cfg, prompt, stylegan, posterior = _load_models_and_posterior(experiment, prompt)
-    base_dir = _trajectory_dir(cfg, experiment, prompt)
-    noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
-    snap_dir = os.path.join(base_dir, noise_dir)
+    snap_dir = _init_dir(cfg, experiment, prompt, noise)
     snapshots = torch.load(os.path.join(snap_dir, 'init_snapshots.pt'), weights_only=False)
 
-    steps_present = [s for s in SNAPSHOT_STEPS if s in snapshots[INIT_TYPES[0]]]
+    steps_present = sorted(snapshots[INIT_TYPES[0]].keys())
     col_labels = [f'Step {s}' for s in steps_present]
     title = f'{experiment} - MALA trajectory by init ({noise} noise)'
     n_chains = next(iter(snapshots[INIT_TYPES[0]].values())).shape[0]
@@ -156,16 +164,14 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
     (no re-sampling, no model needed)."""
     cfg = EXPERIMENTS[experiment]
     prompt = prompt or cfg.prompt
-    base_dir = _trajectory_dir(cfg, experiment, prompt)
 
     if mode == 'stepsize':
-        traces = torch.load(os.path.join(base_dir, 'stepsize_trace.pt'), weights_only=False)
+        sub_dir = _stepsize_dir(cfg, experiment, prompt)
+        traces = torch.load(os.path.join(sub_dir, 'stepsize_trace.pt'), weights_only=False)
         keys = sorted(traces.keys())
         label_fn = lambda k: f'dt={k}'
-        sub_dir = base_dir
     else:
-        noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
-        sub_dir = os.path.join(base_dir, noise_dir)
+        sub_dir = _init_dir(cfg, experiment, prompt, noise)
         traces = torch.load(os.path.join(sub_dir, 'init_trace.pt'), weights_only=False)
         keys = INIT_TYPES
         label_fn = lambda k: k

@@ -24,11 +24,20 @@ from init_scan import get_init_z
 from samplers import latent_MALA_celeba
 from utils import load_imagereward
 
-SNAPSHOT_STEPS = {0, 50, 100, 200, 300, 500, 750, 1000, 2000, 3000}
 STEP_SIZES     = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
 N_CHAINS       = 1
 N_CANDIDATES   = 10000
 INIT_TYPES     = ['random', 'cold', 'warm']
+
+# Fractions of n_steps to snapshot - reproduces the original hardcoded
+# {0,50,100,200,300,500,750,1000,2000,3000} exactly at n_steps=3000, and
+# scales proportionally (same log-ish, burn-in-dense shape) for any other
+# n_steps instead of needing new hardcoded values per step count.
+_SNAPSHOT_FRACS = [0, 1/60, 1/30, 1/15, 1/10, 1/6, 1/4, 1/3, 2/3, 1.0]
+
+
+def _snapshot_steps(n_steps):
+    return {round(f * n_steps) for f in _SNAPSHOT_FRACS}
 
 
 def _slug(s):
@@ -49,6 +58,8 @@ parser.add_argument('--n_steps', type=int, default=3000)
 parser.add_argument('--seed', type=int, default=42)
 args = parser.parse_args()
 
+SNAPSHOT_STEPS = _snapshot_steps(args.n_steps)
+
 cfg = EXPERIMENTS[args.experiment]
 prompt = args.prompt or cfg.prompt
 
@@ -66,9 +77,10 @@ else:
 # grad-requiring MALA steps, which crashes a compiled G. These are small
 # (N_CHAINS=3) diagnostic runs, so compiling wouldn't pay off anyway.
 
-out_dir = os.path.join('experiments', args.experiment, 'trajectory')
-if cfg.kind == 'imagereward' and prompt != cfg.prompt:
-    out_dir = os.path.join(out_dir, _slug(prompt))
+base_dir = os.path.join('experiments', args.experiment, 'trajectory')
+# imagereward experiments always get a prompt subdirectory (even for the
+# config default prompt) so runs for different prompts never collide.
+prompt_slug = f'prompt_{_slug(prompt)}' if cfg.kind == 'imagereward' else None
 
 
 def run_mala_with_trace(dt, z_init, generator):
@@ -82,9 +94,10 @@ def run_mala_with_trace(dt, z_init, generator):
     return snaps, trace
 
 
-os.makedirs(out_dir, exist_ok=True)
-
 if args.mode == 'stepsize':
+    out_dir = os.path.join(base_dir, prompt_slug) if prompt_slug else base_dir
+    os.makedirs(out_dir, exist_ok=True)
+
     init_gen = rng_mod.make_generator(args.seed, device)
     z0 = get_init_z(args.init, posterior.reward_only_fn, N_CHAINS, stylegan.latent_dim,
                      device, init_gen, n_candidates=N_CANDIDATES)
@@ -116,7 +129,9 @@ else:  # init
         snapshots[init_type], traces[init_type] = run_mala_with_trace(cfg.dt_mala, z0, noise_gen)
 
     noise_dir = 'same_noise' if args.noise == 'same' else 'indep_noise'
-    sub_dir = os.path.join(out_dir, noise_dir)
+    sub_dir = os.path.join(base_dir, noise_dir)
+    if prompt_slug:
+        sub_dir = os.path.join(sub_dir, prompt_slug)
     os.makedirs(sub_dir, exist_ok=True)
     torch.save(snapshots, os.path.join(sub_dir, 'init_snapshots.pt'))
     torch.save(traces, os.path.join(sub_dir, 'init_trace.pt'))
