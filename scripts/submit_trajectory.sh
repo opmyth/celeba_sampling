@@ -14,7 +14,7 @@
 #SBATCH --output=logs/trajectory-%j.out
 #SBATCH --error=logs/trajectory-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 
 EXPR=${1:?Usage: sbatch submit_trajectory.sh <experiment> <stepsize|init> [same|indep|both]}
 MODE=${2:?Usage: sbatch submit_trajectory.sh <experiment> <stepsize|init> [same|indep|both]}

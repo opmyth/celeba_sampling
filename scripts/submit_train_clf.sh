@@ -8,7 +8,7 @@
 #SBATCH --output=logs/train_clf-%j.out
 #SBATCH --error=logs/train_clf-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 mkdir -p clf_checkpoints
 
 echo "=== [1/1] Training Young classifier (attr=39) ==="

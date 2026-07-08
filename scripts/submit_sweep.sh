@@ -14,7 +14,7 @@
 #SBATCH --output=logs/sweep-%j.out
 #SBATCH --error=logs/sweep-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 
 EXPR=${1:?Usage: sbatch submit_sweep.sh <experiment> <dt_mala|dt_ula|sigma_gmh|beta> <values>}
 SWEEP=${2:?Usage: sbatch submit_sweep.sh <experiment> <dt_mala|dt_ula|sigma_gmh|beta> <values>}

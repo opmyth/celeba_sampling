@@ -14,7 +14,7 @@
 #SBATCH --output=logs/plot-%j.out
 #SBATCH --error=logs/plot-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 
 EXPR=${1:?Usage: sbatch submit_plot.sh <experiment> <stepsize|init|jump_distance|log_reward> [mode] [noise]}
 PLOT=${2:?Usage: sbatch submit_plot.sh <experiment> <stepsize|init|jump_distance|log_reward> [mode] [noise]}

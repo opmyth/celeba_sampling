@@ -8,6 +8,6 @@
 #SBATCH --output=logs/prior_metrics-%j.out
 #SBATCH --error=logs/prior_metrics-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 
 python run_prior_metrics.py

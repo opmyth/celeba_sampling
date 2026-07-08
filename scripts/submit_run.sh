@@ -19,7 +19,7 @@
 #SBATCH --output=logs/run-%j.out
 #SBATCH --error=logs/run-%j.err
 
-source "$(dirname "$0")/env.sh"
+source "$SLURM_SUBMIT_DIR/scripts/env.sh"
 
 EXPR=${1:?Usage: sbatch submit_run.sh <experiment> [init]}
 INIT=${2:-random}
