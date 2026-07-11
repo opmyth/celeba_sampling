@@ -24,10 +24,17 @@ EXPR=${1:?$USAGE}
 SWEEP=${2:?$USAGE}
 VALUES=${3:?$USAGE}
 
+# N_CHAINS: optional env var override (default is sweep_hyperparams.py's own
+# default of 100). Lower it (e.g. 32, below StyleGAN2Wrapper's chunk size of
+# 64) to fit on a smaller MIG slice - still plenty of chains for a step-size
+# diagnostic sweep, just not full publication-quality sample counts.
+CHAIN_ARGS=()
+if [ -n "${N_CHAINS:-}" ]; then CHAIN_ARGS=(--n_chains "$N_CHAINS"); fi
+
 if [ "$SWEEP" = "both" ]; then
     ULA_VALUES=${4:?$USAGE}
-    python sweep_hyperparams.py --experiment "$EXPR" --sweep dt_mala --values "$VALUES"
-    python sweep_hyperparams.py --experiment "$EXPR" --sweep dt_ula --values "$ULA_VALUES"
+    python sweep_hyperparams.py --experiment "$EXPR" --sweep dt_mala --values "$VALUES" "${CHAIN_ARGS[@]}"
+    python sweep_hyperparams.py --experiment "$EXPR" --sweep dt_ula --values "$ULA_VALUES" "${CHAIN_ARGS[@]}"
 else
-    python sweep_hyperparams.py --experiment "$EXPR" --sweep "$SWEEP" --values "$VALUES"
+    python sweep_hyperparams.py --experiment "$EXPR" --sweep "$SWEEP" --values "$VALUES" "${CHAIN_ARGS[@]}"
 fi
