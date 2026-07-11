@@ -70,4 +70,21 @@ EXPERIMENTS = {
         n_steps=1000, burnin=200, thin_k=80,
         rs_target=100,
     ),
+    # dt_mala/dt_ula below are placeholders pending sweep_hyperparams.py results -
+    # update once real step sizes are picked, before the full run_all.sh pass.
+    'wearing_hat': ExperimentConfig(
+        name='wearing_hat', kind='classifier', clf_names=['WearingHat'],
+        dt_mala=0.1, dt_ula=0.01, sigma_gmh=0.105,
+        rs_target=1000,
+    ),
+    'male_hat': ExperimentConfig(
+        name='male_hat', kind='classifier', clf_names=['male', 'WearingHat'],
+        dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
+        rs_target=1000,
+    ),
+    'notmale_hat': ExperimentConfig(
+        name='notmale_hat', kind='classifier', clf_names=['not_male', 'WearingHat'],
+        dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
+        rs_target=1000,
+    ),
 }

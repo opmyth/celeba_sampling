@@ -10,13 +10,31 @@ from models import classifier, StyleGAN2Wrapper
 _STYLEGAN_PKL = 'stylegan2_celeba.pkl'
 
 
+class _NegatedClassifier(torch.nn.Module):
+    """Wraps a classifier and negates its output logit, so
+    logsigmoid(-logit) = log(1 - sigmoid(logit)) = log P(NOT this attribute).
+    Used for a 'not_<attr>' name instead of a separately trained model -
+    reuses the exact same checkpoint, just targets the opposite class."""
+    def __init__(self, clf):
+        super().__init__()
+        self.clf = clf
+
+    def forward(self, x):
+        return -self.clf(x)
+
+
 def load_classifier(name, device):
+    # 'not_<attr>' reuses <attr>'s checkpoint, wrapped to negate the logit
+    # (targets the opposite class - e.g. 'not_male' = female-presenting).
+    base_name = name[len('not_'):] if name.startswith('not_') else name
     clf = classifier().to(device)
     clf.load_state_dict(torch.load(
-        os.path.join(_HERE, 'clf_checkpoints', f'{name}_clf_aug.pth'),
+        os.path.join(_HERE, 'clf_checkpoints', f'{base_name}_clf_aug.pth'),
         weights_only=False, map_location=device))
     clf.eval()
     clf.requires_grad_(False)
+    if name.startswith('not_'):
+        return _NegatedClassifier(clf).to(device).eval()
     return clf
 
 
