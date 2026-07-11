@@ -8,8 +8,8 @@
 #SBATCH --job-name=sweep
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
-#SBATCH --gres=gpu:1
-#SBATCH --exclude=opencast
+#SBATCH --gres=gpu:nvidia_rtx_a6000:1
+#SBATCH --nodelist=landonia11
 #SBATCH --time=03:00:00
 #SBATCH --output=logs/sweep-%j.out
 #SBATCH --error=logs/sweep-%j.err
