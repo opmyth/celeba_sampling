@@ -70,11 +70,12 @@ EXPERIMENTS = {
         n_steps=1000, burnin=200, thin_k=80,
         rs_target=100,
     ),
-    # dt_mala/dt_ula below are placeholders pending sweep_hyperparams.py results -
-    # update once real step sizes are picked, before the full run_all.sh pass.
+    # dt_mala/dt_ula confirmed via sweep_hyperparams.py (accept rate in
+    # target range + flat/positive log_p trend for MALA; largest dt_ula
+    # with a non-negative trend before it turns unstable for ULA).
     'wearing_hat': ExperimentConfig(
         name='wearing_hat', kind='classifier', clf_names=['WearingHat'],
-        dt_mala=0.1, dt_ula=0.01, sigma_gmh=0.105,
+        dt_mala=0.05, dt_ula=0.01, sigma_gmh=0.105,
         rs_target=1000,
     ),
     'male_hat': ExperimentConfig(
