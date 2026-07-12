@@ -208,7 +208,7 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
     for i in range(len(keys), len(axes_flat)):
         axes_flat[i].axis('off')
 
-    ylabel = '||z_{t+1} - z_t||_2' if metric == 'jump_distance' else 'log r(z)  (reward term only, log_p + 0.5||z||^2)'
+    ylabel = r'$\|z_{t+1} - z_t\|_2$' if metric == 'jump_distance' else 'log r(z)'
     fig.supylabel(ylabel, fontsize=9)
     fig.suptitle(f'{experiment} - {metric} ({mode}, chain {chain_idx})', fontsize=11)
     plt.tight_layout()
