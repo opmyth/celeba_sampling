@@ -178,9 +178,12 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         keys = INIT_TYPES
         label_fn = lambda k: k
 
+    ROLLING_WINDOW = 50
+
     ncols = min(3, len(keys))
     nrows = (len(keys) + ncols - 1) // ncols
-    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows), squeeze=False)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows),
+                              squeeze=False, sharey=(metric == 'jump_distance'))
     axes_flat = axes.flatten()
 
     for i, k in enumerate(keys):
@@ -190,9 +193,14 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         if metric == 'jump_distance':
             y = torch.norm(z[1:] - z[:-1], dim=1).numpy()
             ax.set_yscale('log')
+            ax.plot(y, linewidth=0.5, alpha=0.4, color='C0')
+            if len(y) >= ROLLING_WINDOW:
+                smoothed = np.convolve(y, np.ones(ROLLING_WINDOW) / ROLLING_WINDOW, mode='valid')
+                x_smooth = np.arange(ROLLING_WINDOW - 1, len(y))
+                ax.plot(x_smooth, smoothed, linewidth=1.3, color='C1')
         else:
             y = (log_p + 0.5 * (z ** 2).sum(1)).numpy()   # reward = log_p + prior term
-        ax.plot(y, linewidth=0.8)
+            ax.plot(y, linewidth=0.8)
         ax.set_title(label_fn(k), fontsize=9)
         ax.set_xlabel('step', fontsize=8)
         ax.tick_params(labelsize=7)
