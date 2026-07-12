@@ -186,7 +186,11 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
             y = (log_p + 0.5 * (z ** 2).sum(1)).numpy()   # reward = log_p + prior term
         ax.plot(y, label=label_fn(k), linewidth=1)
 
-    ylabel = '||z_{t+1} - z_t||_2' if metric == 'jump_distance' else 'log reward'
+    if metric == 'jump_distance':
+        ylabel = '||z_{t+1} - z_t||_2'
+        ax.set_yscale('log')
+    else:
+        ylabel = 'log r(z)  (reward term only, log_p + 0.5||z||^2)'
     ax.set_xlabel('step')
     ax.set_ylabel(ylabel)
     ax.set_title(f'{experiment} - {metric} ({mode}, chain {chain_idx})')
