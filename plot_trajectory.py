@@ -161,7 +161,9 @@ def plot_init_grid(experiment, noise='same', prompt=None):
 def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None):
     """metric: 'jump_distance' (||z_t+1 - z_t||_2) or 'log_reward', for a
     single chain, read straight from the trace .pt saved by run_trajectory.py
-    (no re-sampling, no model needed)."""
+    (no re-sampling, no model needed). One subplot per swept value (dt or
+    init type), each with its own y-range - overlaying all of them on one
+    axes made small-dt/less-active lines invisible next to large-dt ones."""
     cfg = EXPERIMENTS[experiment]
     prompt = prompt or cfg.prompt
 
@@ -176,25 +178,31 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         keys = INIT_TYPES
         label_fn = lambda k: k
 
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    for k in keys:
+    ncols = min(3, len(keys))
+    nrows = (len(keys) + ncols - 1) // ncols
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4 * ncols, 3 * nrows), squeeze=False)
+    axes_flat = axes.flatten()
+
+    for i, k in enumerate(keys):
+        ax = axes_flat[i]
         z = traces[k]['z'][:, chain_idx, :]        # (n_steps, latent_dim)
         log_p = traces[k]['log_p'][:, chain_idx]   # (n_steps,)
         if metric == 'jump_distance':
             y = torch.norm(z[1:] - z[:-1], dim=1).numpy()
+            ax.set_yscale('log')
         else:
             y = (log_p + 0.5 * (z ** 2).sum(1)).numpy()   # reward = log_p + prior term
-        ax.plot(y, label=label_fn(k), linewidth=1)
+        ax.plot(y, linewidth=0.8)
+        ax.set_title(label_fn(k), fontsize=9)
+        ax.set_xlabel('step', fontsize=8)
+        ax.tick_params(labelsize=7)
 
-    if metric == 'jump_distance':
-        ylabel = '||z_{t+1} - z_t||_2'
-        ax.set_yscale('log')
-    else:
-        ylabel = 'log r(z)  (reward term only, log_p + 0.5||z||^2)'
-    ax.set_xlabel('step')
-    ax.set_ylabel(ylabel)
-    ax.set_title(f'{experiment} - {metric} ({mode}, chain {chain_idx})')
-    ax.legend(fontsize=7)
+    for i in range(len(keys), len(axes_flat)):
+        axes_flat[i].axis('off')
+
+    ylabel = '||z_{t+1} - z_t||_2' if metric == 'jump_distance' else 'log r(z)  (reward term only, log_p + 0.5||z||^2)'
+    fig.supylabel(ylabel, fontsize=9)
+    fig.suptitle(f'{experiment} - {metric} ({mode}, chain {chain_idx})', fontsize=11)
     plt.tight_layout()
 
     out_path = os.path.join(sub_dir, f'{metric}_{mode}_chain{chain_idx}.png')
