@@ -56,6 +56,12 @@ EXPERIMENTS = {
         name='male', kind='classifier', clf_names=['male'],
         dt_mala=0.1, dt_ula=0.03, sigma_gmh=0.1052,
     ),
+    'notmale': ExperimentConfig(
+        name='notmale', kind='classifier', clf_names=['not_male'],
+        rs_target=1000,
+        # dt_mala/dt_ula placeholders pending sweep_hyperparams.py results -
+        # update once the step size sweep picks final values (see EXPERIMENTS.md).
+    ),
     'male_eye': ExperimentConfig(
         name='male_eye', kind='classifier', clf_names=['male', 'eyeglasses'],
         samplers=['MALA', 'G_MH'],   # no ULA run for this experiment historically
