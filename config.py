@@ -56,11 +56,14 @@ EXPERIMENTS = {
         name='male', kind='classifier', clf_names=['male'],
         dt_mala=0.1, dt_ula=0.03, sigma_gmh=0.1052,
     ),
+    # dt_mala/dt_ula confirmed via sweep_hyperparams.py: dt_mala=0.1 gave 65.5%
+    # MALA accept (target band, matches male's own dt_mala); dt_ula=0.005 is the
+    # largest value with a clearly non-negative log_p trend (0.01 was already
+    # borderline negative).
     'notmale': ExperimentConfig(
         name='notmale', kind='classifier', clf_names=['not_male'],
+        dt_mala=0.1, dt_ula=0.005,
         rs_target=1000,
-        # dt_mala/dt_ula placeholders pending sweep_hyperparams.py results -
-        # update once the step size sweep picks final values (see EXPERIMENTS.md).
     ),
     'male_eye': ExperimentConfig(
         name='male_eye', kind='classifier', clf_names=['male', 'eyeglasses'],
