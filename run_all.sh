@@ -6,7 +6,7 @@
 # Usage: bash run_all.sh <experiment> [init]
 #   init: random (default), cold, warm
 #
-# Optional overrides (env vars): DT_MALA, DT_ULA, SIGMA, PROMPT, N_STEPS, BURNIN, THIN_K
+# Optional overrides (env vars): DT_MALA, DT_ULA, SIGMA, PROMPT, N_STEPS, BURNIN, THIN_K, N_CHAINS
 set -eo pipefail
 
 EXPR=${1:?Usage: bash run_all.sh <experiment> [init]}
@@ -27,6 +27,7 @@ STEP_ARGS=()
 if [ -n "${N_STEPS:-}" ]; then STEP_ARGS+=(--n_steps "$N_STEPS"); fi
 if [ -n "${BURNIN:-}" ]; then STEP_ARGS+=(--burnin "$BURNIN"); fi
 if [ -n "${THIN_K:-}" ]; then STEP_ARGS+=(--thin_k "$THIN_K"); fi
+if [ -n "${N_CHAINS:-}" ]; then STEP_ARGS+=(--n_chains "$N_CHAINS"); fi
 
 cat > "${EXPR_DIR}/config.txt" <<CFG
 experiment:  ${EXPR}
@@ -40,6 +41,7 @@ prompt:      ${PROMPT:-<config.py default>}
 n_steps:     ${N_STEPS:-<config.py default>}
 burnin:      ${BURNIN:-<config.py default>}
 thin_k:      ${THIN_K:-<config.py default>}
+n_chains:    ${N_CHAINS:-<config.py default>}
 CFG
 
 echo "=== [1] Rejection Sampling ==="
