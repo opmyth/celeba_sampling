@@ -49,6 +49,9 @@ parser.add_argument('--prompt', type=str, default=None)
 parser.add_argument('--seed', type=int, default=42)
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 cfg = EXPERIMENTS[args.experiment]
 prompt = args.prompt or cfg.prompt
 values = [float(v) for v in args.values.split(',')]

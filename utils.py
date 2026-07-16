@@ -1,3 +1,4 @@
+import os
 import torch
 
 import numpy as np
@@ -7,6 +8,22 @@ import ot
 from itertools import combinations
 from scipy.stats import wasserstein_distance_nd
 from scipy.stats import ttest_rel
+
+
+def maybe_enable_tf32():
+    """Opt-in TF32 matmuls via the TF32=1 env var (torch's default is off).
+
+    ~1.3-2x on transformer-heavy workloads (BLIP dominates ImageReward steps)
+    at ~1e-3 relative matmul noise. Deliberately an env flag, NOT enabled
+    globally: the classifier experiments' published numbers were produced
+    without it, so silent global enablement would make future reruns subtly
+    non-comparable. Set TF32=1 per job where the speed matters and the
+    experiment's results are being regenerated anyway (e.g. bald_ir's
+    2026-07-16 from-scratch rerun). Prints a provenance line so job logs
+    record which mode produced any given result file."""
+    if os.environ.get('TF32') == '1':
+        torch.set_float32_matmul_precision('high')
+        print('TF32 matmul enabled (TF32=1)', flush=True)
 
 
 def compute_w2(samples_1, samples_2):

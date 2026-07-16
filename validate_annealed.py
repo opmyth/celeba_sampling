@@ -56,6 +56,9 @@ parser.add_argument('--chunk_size', type=int, default=None,
 parser.add_argument('--out', type=str, default='validate_annealed_results.txt')
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 cfg = EXPERIMENTS[args.experiment]
 prompt = args.prompt or cfg.prompt
 n_chains = args.n_chains or cfg.n_chains

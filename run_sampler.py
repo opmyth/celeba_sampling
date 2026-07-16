@@ -44,6 +44,9 @@ parser.add_argument('--rs_path', type=str, default=None)
 parser.add_argument('--output_path', type=str, default=None)
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 cfg = EXPERIMENTS[args.experiment]
 if args.sampler not in cfg.samplers:
     raise ValueError(f"'{args.experiment}' does not run {args.sampler} "

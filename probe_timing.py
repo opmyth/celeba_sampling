@@ -41,6 +41,9 @@ parser.add_argument('--out', type=str, default='probe_timing_results.txt',
                      help='results file; appended to, so successive probes accumulate')
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 _lines = []
 
 

@@ -43,6 +43,9 @@ parser.add_argument('--force', action='store_true',
                      help='recompute prompts that already have a cached r_max instead of skipping them')
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 

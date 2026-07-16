@@ -29,6 +29,9 @@ parser.add_argument('--seed', type=int, default=321)
 parser.add_argument('--output_path', type=str, default=None)
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 cfg = EXPERIMENTS[args.experiment]
 n_trials = args.n_trials or cfg.n_trials
 prompt = args.prompt or cfg.prompt

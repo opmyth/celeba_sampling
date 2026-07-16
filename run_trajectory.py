@@ -87,6 +87,9 @@ parser.add_argument('--n_steps', type=int, default=3000)
 parser.add_argument('--seed', type=int, default=42)
 args = parser.parse_args()
 
+from utils import maybe_enable_tf32
+maybe_enable_tf32()
+
 SNAPSHOT_STEPS = _snapshot_steps(args.n_steps)
 
 cfg = EXPERIMENTS[args.experiment]
