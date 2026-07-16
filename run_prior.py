@@ -14,7 +14,7 @@ import wandb
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from utils import (compute_w2, compute_diversity, compute_diversity_cov,
                     compute_male_fraction, load_imagereward)
 
@@ -51,7 +51,7 @@ if cfg.kind == 'classifier':
     posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
 else:
     reward_model = load_imagereward(device)
-    posterior = imagereward_posterior(stylegan, reward_model, prompt, device)
+    posterior = imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 
 rs_data = torch.load(rs_path, weights_only=False)
 rs_samples_list = rs_data['samples']

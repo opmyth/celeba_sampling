@@ -16,7 +16,7 @@ import numpy as np
 
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from utils import load_imagereward
 
 INIT_TYPES     = ['random', 'cold', 'warm']
@@ -48,7 +48,7 @@ def _build_posterior(cfg, stylegan, clfs, prompt, device):
     if cfg.kind == 'classifier':
         return classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
     reward_model = load_imagereward(device)
-    return imagereward_posterior(stylegan, reward_model, prompt, device)
+    return imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 
 
 def _decode(z_batch, stylegan, posterior):

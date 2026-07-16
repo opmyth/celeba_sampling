@@ -10,7 +10,7 @@ import wandb
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from init_scan import get_init_z
 from samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba
 from utils import (compute_w2, compute_diversity, compute_diversity_cov,
@@ -78,7 +78,7 @@ if cfg.kind == 'classifier':
     posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
 else:
     reward_model = load_imagereward(device)
-    posterior = imagereward_posterior(stylegan, reward_model, prompt, device)
+    posterior = imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 
 z_init_tensor = None
 if args.init != 'random':

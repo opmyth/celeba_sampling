@@ -11,7 +11,7 @@ import wandb
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from samplers import rejection_sampling
 from utils import (compute_w2, compute_diversity, compute_diversity_cov,
                     compute_male_fraction, load_imagereward)
@@ -48,8 +48,8 @@ if cfg.kind == 'classifier':
     r_max = None
 else:
     reward_model = load_imagereward(device)
-    posterior = imagereward_posterior(stylegan, reward_model, prompt, device)
-    r_max = posterior.estimate_r_max(2000, rng_mod.make_generator(args.seed, device))
+    r_max = load_r_max(prompt)
+    posterior = imagereward_posterior(stylegan, reward_model, prompt, device, r_max)
     print(f'r_max = {r_max:.4f}', flush=True)
 
 t = time.time()

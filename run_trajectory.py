@@ -19,7 +19,7 @@ import argparse, torch
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from init_scan import get_init_z
 from samplers import latent_MALA_celeba
 from utils import load_imagereward
@@ -71,7 +71,7 @@ if cfg.kind == 'classifier':
     posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
 else:
     reward_model = load_imagereward(device)
-    posterior = imagereward_posterior(stylegan, reward_model, prompt, device)
+    posterior = imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 # stylegan.G intentionally NOT compiled here: compile caches requires_grad
 # state, and every mode below toggles between the no-grad init scan and
 # grad-requiring MALA steps, which crashes a compiled G. These are small

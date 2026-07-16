@@ -14,7 +14,7 @@ import torch
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_stylegan, load_classifier
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from utils import compute_w2, compute_diversity, compute_diversity_cov, load_imagereward
 
 N_TRIALS    = 5
@@ -57,7 +57,7 @@ for name, cfg in EXPERIMENTS.items():
     if cfg.kind == 'classifier':
         posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
     else:
-        posterior = imagereward_posterior(stylegan, reward_model, cfg.prompt, device)
+        posterior = imagereward_posterior(stylegan, reward_model, cfg.prompt, device, load_r_max(cfg.prompt))
 
     reward_vals = []
     for z_a in z_trials:

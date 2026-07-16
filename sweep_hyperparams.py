@@ -17,7 +17,7 @@ import torch
 import rng as rng_mod
 from config import EXPERIMENTS
 from model_loader import load_models
-from posteriors import classifier_posterior, imagereward_posterior
+from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from samplers import latent_MALA_celeba, latent_ULA_celeba, latent_Gaussian_MH_celeba
 from utils import load_imagereward
 
@@ -61,15 +61,16 @@ print(f'Device: {device}', flush=True)
 
 stylegan, clfs, _ = load_models(cfg.clf_names or [], device)
 reward_model = load_imagereward(device) if cfg.kind == 'imagereward' else None
+r_max = load_r_max(prompt) if cfg.kind == 'imagereward' else None
 posterior = (classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names]) if cfg.kind == 'classifier'
-             else imagereward_posterior(stylegan, reward_model, prompt, device))
+             else imagereward_posterior(stylegan, reward_model, prompt, device, r_max))
 
 sampler_fn = SAMPLER_FOR_SWEEP[args.sweep]
 
 
 def run_trial(value):
     if args.sweep == 'beta':
-        post = imagereward_posterior(stylegan, reward_model, prompt, device, beta=value)
+        post = imagereward_posterior(stylegan, reward_model, prompt, device, r_max, beta=value)
         step_param = cfg.dt_mala
     else:
         post = posterior
