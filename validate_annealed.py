@@ -50,6 +50,9 @@ parser.add_argument('--dt_anneal', type=str, default=None,
 parser.add_argument('--seed', type=int, default=321)
 parser.add_argument('--probe', action='store_true',
                      help='timing probe only: 1 trial, 300-step tail, short annealing, no metrics')
+parser.add_argument('--chunk_size', type=int, default=None,
+                     help='override StyleGAN2Wrapper.max_batch_size (default 64) - smaller for '
+                          'low-VRAM GPUs; numerically equivalent, only affects memory/speed')
 parser.add_argument('--out', type=str, default='validate_annealed_results.txt')
 args = parser.parse_args()
 
@@ -84,6 +87,11 @@ log(f'experiment={args.experiment}, probe={args.probe}, n_chains={n_chains}, n_t
     f'node={os.environ.get("SLURMD_NODENAME", "local")}')
 
 stylegan, clfs, _ = load_models(cfg.clf_names or [], device)
+if args.chunk_size:
+    # must happen BEFORE building the posterior - classifier_posterior reads
+    # model.max_batch_size once at construction time
+    stylegan.max_batch_size = args.chunk_size
+    log(f'chunk_size override: {args.chunk_size}')
 if cfg.kind == 'classifier':
     posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
 else:
