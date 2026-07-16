@@ -76,8 +76,17 @@ EXPERIMENTS = {
         prompt='a bald man',
         prompts=['a bald man', 'a bald person', 'a person with a shaved head'],
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
-        n_steps=1000, burnin=200, thin_k=80,
-        rs_target=100,
+        # 2026-07-16: was n_steps=1000, burnin=200, thin_k=80 - same
+        # kept_per_chain=10 but only a third of the classifier experiments'
+        # step budget, so chains had 3x less time to converge/mix with no
+        # documented justification. Now matches the classifier schedule
+        # exactly; the only remaining difference vs. classifiers is runtime
+        # (ImageReward/BLIP is ~3-4x slower per step).
+        # rs_target also bumped 100 -> 1000 in the same pass (the known
+        # RS-undersampling inconsistency, already fixed for male_eye and
+        # never present in the _hat/notmale experiments). ~1h RS stage at
+        # the observed ~5% accept rate, vs ~6min at 100.
+        rs_target=1000,
     ),
     # dt_mala/dt_ula confirmed via sweep_hyperparams.py (accept rate in
     # target range + flat/positive log_p trend for MALA; largest dt_ula
