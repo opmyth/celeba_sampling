@@ -22,6 +22,10 @@ SAMPLER_FNS = {
     'G_MH': latent_Gaussian_MH_celeba,
 }
 
+
+def _slug(s):
+    return s.lower().replace(' ', '_')
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--experiment', required=True, choices=list(EXPERIMENTS))
 parser.add_argument('--sampler', required=True, choices=['ULA', 'MALA', 'G_MH'])
@@ -51,8 +55,13 @@ n_steps  = args.n_steps or cfg.n_steps
 burnin   = args.burnin if args.burnin is not None else cfg.burnin
 thin_k   = args.thin_k or cfg.thin_k
 prompt   = args.prompt or cfg.prompt
-rs_path     = args.rs_path or f'experiments/{args.experiment}/results_rs.pt'
-output_path = args.output_path or f'experiments/{args.experiment}/results_{args.sampler.lower()}.pt'
+# imagereward experiments nest by prompt so different prompts' runs never
+# collide (bald_ir has 3) - classifier experiments are unaffected (no prompt).
+prompt_dir = f'experiments/{args.experiment}'
+if cfg.kind == 'imagereward':
+    prompt_dir = os.path.join(prompt_dir, f'prompt_{_slug(prompt)}')
+rs_path     = args.rs_path or os.path.join(prompt_dir, 'results_rs.pt')
+output_path = args.output_path or os.path.join(prompt_dir, f'results_{args.sampler.lower()}.pt')
 
 if args.sampler == 'MALA':
     param = args.dt if args.dt is not None else cfg.dt_mala

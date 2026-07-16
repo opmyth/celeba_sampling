@@ -5,14 +5,28 @@ import argparse, os, torch
 
 from config import EXPERIMENTS
 
+
+def _slug(s):
+    return s.lower().replace(' ', '_')
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--experiment', required=True, choices=list(EXPERIMENTS))
+parser.add_argument('--prompt', type=str, default=None,
+                     help='override the config default prompt (imagereward experiments only)')
 parser.add_argument('--expr_dir', type=str, default=None)
 parser.add_argument('--output_path', type=str, default=None)
 args = parser.parse_args()
 
 cfg = EXPERIMENTS[args.experiment]
-expr_dir = args.expr_dir or f'experiments/{args.experiment}'
+prompt = args.prompt or cfg.prompt
+# imagereward experiments nest by prompt so different prompts' runs never
+# collide (bald_ir has 3) - classifier experiments are unaffected (no prompt).
+expr_dir = args.expr_dir
+if expr_dir is None:
+    expr_dir = f'experiments/{args.experiment}'
+    if cfg.kind == 'imagereward':
+        expr_dir = os.path.join(expr_dir, f'prompt_{_slug(prompt)}')
 output_path = args.output_path or f'{expr_dir}/results_stylegan.pt'
 
 

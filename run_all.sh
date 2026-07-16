@@ -17,6 +17,18 @@ else
     EXPR_DIR="experiments/${EXPR}_${INIT}"
 fi
 
+# imagereward experiments nest by prompt so different prompts' runs never
+# collide (bald_ir has 3) - classifier experiments are unaffected (no prompt).
+# Mirrors run_rs.py/run_prior.py/run_sampler.py/merge_results.py's own
+# default-path nesting, needed here too since this script always passes an
+# explicit --output_path/--rs_path/--expr_dir that overrides those defaults.
+KIND=$(python -c "from config import EXPERIMENTS; print(EXPERIMENTS['${EXPR}'].kind)")
+if [ "$KIND" = "imagereward" ]; then
+    PROMPT_FOR_DIR=${PROMPT:-$(python -c "from config import EXPERIMENTS; print(EXPERIMENTS['${EXPR}'].prompt)")}
+    SLUG=$(echo "$PROMPT_FOR_DIR" | tr '[:upper:]' '[:lower:]' | tr ' ' '_')
+    EXPR_DIR="${EXPR_DIR}/prompt_${SLUG}"
+fi
+
 mkdir -p logs "${EXPR_DIR}"
 
 SAMPLERS=$(python -c "from config import EXPERIMENTS; print(' '.join(EXPERIMENTS['${EXPR}'].samplers))")

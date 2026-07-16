@@ -16,6 +16,10 @@ from samplers import rejection_sampling
 from utils import (compute_w2, compute_diversity, compute_diversity_cov,
                     compute_male_fraction, load_imagereward)
 
+def _slug(s):
+    return s.lower().replace(' ', '_')
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--experiment', required=True, choices=list(EXPERIMENTS))
 parser.add_argument('--n_trials', type=int, default=None)
@@ -28,7 +32,12 @@ args = parser.parse_args()
 cfg = EXPERIMENTS[args.experiment]
 n_trials = args.n_trials or cfg.n_trials
 prompt = args.prompt or cfg.prompt
-output_path = args.output_path or f'experiments/{args.experiment}/results_rs.pt'
+# imagereward experiments nest by prompt so different prompts' runs never
+# collide (bald_ir has 3) - classifier experiments are unaffected (no prompt).
+expr_dir = f'experiments/{args.experiment}'
+if cfg.kind == 'imagereward':
+    expr_dir = os.path.join(expr_dir, f'prompt_{_slug(prompt)}')
+output_path = args.output_path or os.path.join(expr_dir, 'results_rs.pt')
 
 wandb.init(
     project="dissertation-stylegan-sampling",
