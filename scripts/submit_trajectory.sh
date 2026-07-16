@@ -36,16 +36,22 @@ run_init() {
     for N in "${NOISES[@]}"; do
         python run_trajectory.py --experiment "$EXPR" --mode init --noise "$N" "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}"
         python plot_trajectory.py --experiment "$EXPR" --plot init --noise "$N" "${PROMPT_ARGS[@]}"
+        # chain-0 single-walker traces + the across-chain mean convergence trend
         python plot_trajectory.py --experiment "$EXPR" --plot jump_distance --mode init --noise "$N" "${PROMPT_ARGS[@]}"
         python plot_trajectory.py --experiment "$EXPR" --plot log_reward --mode init --noise "$N" "${PROMPT_ARGS[@]}"
+        python plot_trajectory.py --experiment "$EXPR" --plot jump_distance --mode init --noise "$N" --chain mean "${PROMPT_ARGS[@]}"
+        python plot_trajectory.py --experiment "$EXPR" --plot log_reward --mode init --noise "$N" --chain mean "${PROMPT_ARGS[@]}"
     done
 }
 
 run_stepsize() {
     python run_trajectory.py --experiment "$EXPR" --mode stepsize "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}"
     python plot_trajectory.py --experiment "$EXPR" --plot stepsize "${PROMPT_ARGS[@]}"
+    # chain-0 single-walker traces + the across-chain mean convergence trend
     python plot_trajectory.py --experiment "$EXPR" --plot jump_distance --mode stepsize "${PROMPT_ARGS[@]}"
     python plot_trajectory.py --experiment "$EXPR" --plot log_reward --mode stepsize "${PROMPT_ARGS[@]}"
+    python plot_trajectory.py --experiment "$EXPR" --plot jump_distance --mode stepsize --chain mean "${PROMPT_ARGS[@]}"
+    python plot_trajectory.py --experiment "$EXPR" --plot log_reward --mode stepsize --chain mean "${PROMPT_ARGS[@]}"
 }
 
 case "$MODE" in
