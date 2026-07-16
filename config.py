@@ -74,7 +74,11 @@ EXPERIMENTS = {
     'bald_ir': ExperimentConfig(
         name='bald_ir', kind='imagereward',
         prompt='a bald man',
-        prompts=['a bald man', 'a bald person', 'a person with a shaved head'],
+        # 'a bald person' dropped permanently 2026-07-16 (user decision) -
+        # final scope is these two prompts, matching the trajectory
+        # diagnostics scope. r_max.pt keeps its stale 'a bald person' entry
+        # harmlessly (lookup is by prompt key).
+        prompts=['a bald man', 'a person with a shaved head'],
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
         # 2026-07-16: was n_steps=1000, burnin=200, thin_k=80 - same
         # kept_per_chain=10 but only a third of the classifier experiments'
