@@ -86,6 +86,108 @@ def latent_MALA_celeba(posterior: Posterior, n_chains, n_steps, dt, latent_dim, 
     return samples, log_p_kept, accept_count / n_steps, log_p_trace
 
 
+def latent_annealed_MALA_celeba(posterior: Posterior, n_chains, n_steps, dt, latent_dim, device,
+                                 generator=None, burnin=0, thin_k=1, z_init=None,
+                                 return_diagnostics=False,
+                                 n_temps=6, annealing_steps=700, dt_anneal=None):
+    """Annealed MALA with LIKELIHOOD-ONLY tempering (supervisor-confirmed):
+
+        log pi_T(z) = -0.5||z||^2 + (1/T) * log r(z)
+        grad       = -z + (1/T) * grad log r(z)
+
+    The prior term is never tempered - only the reward. Both tempered
+    quantities are derived arithmetically from the untempered Posterior
+    (log r = log_p + 0.5||z||^2, grad log r = grad + z), so this works for
+    any experiment kind with no posteriors.py changes.
+
+    Follows the 'scale_drift' variant of annealed-langvein-ULA-MALA.ipynb:
+    drift dt * grad log pi_T, noise unchanged sqrt(2dt)*eta - i.e. each
+    temperature phase is literally plain MALA targeting pi_T, with the
+    acceptance ratio and proposal q both computed under pi_T consistently.
+
+    Two phases:
+      a. annealing: temps = sqrt(2)^n for n = n_temps..0 (n_temps+1
+         temperatures, ~8 -> 1 at the default n_temps=6), annealing_steps
+         split evenly across them. NO samples kept here - T>1 samples are
+         from a tempered (wrong) distribution and never count as posterior
+         samples. This phase is conceptually the (extra) burn-in.
+      b. T=1 tail: n_steps of the plain latent_MALA_celeba (literally
+         delegated to it, so tail behavior is identical to the non-annealed
+         sampler by construction) with the usual burnin/thin_k applied to
+         the tail ONLY - kept_per_chain stays comparable to non-annealed
+         runs at the same n_steps/burnin/thin_k.
+
+    dt_anneal: optional per-temperature step size list (len n_temps+1),
+    largest-T first, letting dt shrink as T->1 while the target sharpens.
+    None = use `dt` at every temperature. The tail always uses `dt`.
+
+    Returns the standard (samples, log_p_kept, accept_rate, log_p_trace)
+    contract: accept_rate is the T=1 tail's (per-temperature annealing
+    accept rates are printed); log_p_trace, if requested, is the full
+    annealing+tail concatenation ((annealing_steps_used + n_steps, n_chains))
+    with annealing entries being log pi_T at that step's own temperature.
+    """
+    temps = [2 ** (n / 2) for n in range(n_temps, -1, -1)]   # sqrt(2)^n, largest first
+    if dt_anneal is None:
+        dt_anneal = [dt] * len(temps)
+    if len(dt_anneal) != len(temps):
+        raise ValueError(f'dt_anneal needs {len(temps)} entries (one per temperature), got {len(dt_anneal)}')
+    steps_per_temp = annealing_steps // len(temps)
+
+    def _tempered_grad_and_log_p(z, T):
+        g, lp = posterior.grad_and_log_p_fn(z)
+        if T == 1:
+            return g, lp
+        log_prior = -0.5 * (z ** 2).sum(1)
+        reward = lp - log_prior          # log r(z)
+        reward_grad = g + z              # grad log r(z)
+        return -z + reward_grad / T, log_prior + reward / T
+
+    z = z_init.clone().to(device) if z_init is not None else \
+        _draw_noise((n_chains, latent_dim), device, generator)
+    anneal_trace = [] if return_diagnostics else None
+
+    for T, dt_T in zip(temps, dt_anneal):
+        if steps_per_temp == 0:
+            break
+        noise_scale = (2 * dt_T) ** 0.5
+        z_grad, log_p_z = _tempered_grad_and_log_p(z, T)
+        accept_count = 0
+        for _ in tqdm(range(steps_per_temp), desc=f'anneal T={T:.2f}'):
+            noise = _draw_noise(z.shape, device, generator)
+            z_prop = z + dt_T * z_grad + noise_scale * noise
+            z_prop_grad, log_p_prop = _tempered_grad_and_log_p(z_prop, T)
+
+            log_q_fwd = -torch.sum((z_prop - (z + dt_T * z_grad)) ** 2, dim=1) / (4 * dt_T)
+            log_q_bwd = -torch.sum((z - (z_prop + dt_T * z_prop_grad)) ** 2, dim=1) / (4 * dt_T)
+            log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
+
+            u = torch.rand(n_chains, device=device, generator=generator)
+            accept = torch.log(u) <= log_alpha
+            accept_count += accept.float().mean().item()
+
+            mask = accept.unsqueeze(1)
+            z = torch.where(mask, z_prop, z)
+            z_grad = torch.where(mask, z_prop_grad, z_grad)
+            log_p_z = torch.where(accept, log_p_prop, log_p_z)
+            if return_diagnostics:
+                anneal_trace.append(log_p_z.detach().cpu().clone())
+        print(f'  anneal T={T:.3f} (dt={dt_T}): accept={accept_count / steps_per_temp:.1%}', flush=True)
+
+    # T=1 tail: delegate to the plain sampler so tail behavior is identical
+    # to the non-annealed pipeline by construction (same code, same
+    # burnin/thin_k semantics) - the annealed run only differs by its z_init.
+    samples, log_p_kept, accept_rate, tail_trace = latent_MALA_celeba(
+        posterior, n_chains, n_steps, dt, latent_dim, device,
+        generator=generator, burnin=burnin, thin_k=thin_k, z_init=z,
+        return_diagnostics=return_diagnostics)
+
+    log_p_trace = None
+    if return_diagnostics:
+        log_p_trace = torch.cat([torch.stack(anneal_trace), tail_trace]) if anneal_trace else tail_trace
+    return samples, log_p_kept, accept_rate, log_p_trace
+
+
 def latent_Gaussian_MH_celeba(posterior: Posterior, n_chains, n_steps, sigma, latent_dim, device,
                                generator=None, burnin=0, thin_k=1, z_init=None,
                                return_diagnostics=False):
