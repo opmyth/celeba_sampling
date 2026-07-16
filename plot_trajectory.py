@@ -140,7 +140,12 @@ def plot_init_grid(experiment, noise='same', prompt=None):
     title = f'{experiment} - MALA trajectory by init ({noise} noise)'
     n_chains = next(iter(snapshots[INIT_TYPES[0]].values())).shape[0]
 
-    for chain_idx in range(n_chains):
+    # Capped at 2 grids no matter how many chains ran: each grid costs a
+    # StyleGAN2 decode per cell, and at N_CHAINS=100 rendering one per chain
+    # would be 100 near-identical images nobody inspects. Two gives a
+    # cross-chain visual comparison; the full-population view is the averaged
+    # trace plots, not image grids.
+    for chain_idx in range(min(2, n_chains)):
         fig, axes = _make_grid(len(INIT_TYPES), len(col_labels), INIT_TYPES, col_labels,
                                 f'{title} (chain {chain_idx})')
         for r, init_type in enumerate(INIT_TYPES):
@@ -159,13 +164,25 @@ def plot_init_grid(experiment, noise='same', prompt=None):
 
 
 def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None):
-    """metric: 'jump_distance' (||z_t+1 - z_t||_2) or 'log_reward', for a
-    single chain, read straight from the trace .pt saved by run_trajectory.py
-    (no re-sampling, no model needed). One subplot per swept value (dt or
-    init type), each with its own y-range - overlaying all of them on one
-    axes made small-dt/less-active lines invisible next to large-dt ones."""
+    """metric: 'jump_distance' (||z_t+1 - z_t||_2) or 'log_reward', read
+    straight from the trace .pt saved by run_trajectory.py (no re-sampling,
+    no model needed). One subplot per swept value (dt or init type), each
+    with its own y-range - overlaying all of them on one axes made
+    small-dt/less-active lines invisible next to large-dt ones.
+
+    chain_idx: an int plots that single chain's trace (spiky by construction
+    for jump_distance - MALA rejects leave the chain exactly still - hence
+    the rolling-mean overlay). The string 'mean' instead averages the metric
+    across ALL chains at each step and plots that as one line - a convergence
+    trend for the whole chain population rather than one noisy walker. No
+    spread band: this is a convergence sanity check, not a statistical
+    comparison like the 5-trial pipeline tables, so the mean trend alone is
+    the deliverable. No rolling overlay either - cross-chain averaging is
+    already the smoother (and at n_chains=1 the mean just degenerates to
+    chain 0's raw trace)."""
     cfg = EXPERIMENTS[experiment]
     prompt = prompt or cfg.prompt
+    mean_mode = chain_idx == 'mean'
 
     if mode == 'stepsize':
         sub_dir = _stepsize_dir(cfg, experiment, prompt)
@@ -179,6 +196,7 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         label_fn = lambda k: k
 
     ROLLING_WINDOW = 50
+    n_chains = traces[keys[0]]['z'].shape[1]
 
     ncols = min(3, len(keys))
     nrows = (len(keys) + ncols - 1) // ncols
@@ -188,19 +206,29 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
 
     for i, k in enumerate(keys):
         ax = axes_flat[i]
-        z = traces[k]['z'][:, chain_idx, :]        # (n_steps, latent_dim)
-        log_p = traces[k]['log_p'][:, chain_idx]   # (n_steps,)
-        if metric == 'jump_distance':
-            y = torch.norm(z[1:] - z[:-1], dim=1).numpy()
-            ax.set_yscale('log')
-            ax.plot(y, linewidth=0.5, alpha=0.4, color='C0')
-            if len(y) >= ROLLING_WINDOW:
-                smoothed = np.convolve(y, np.ones(ROLLING_WINDOW) / ROLLING_WINDOW, mode='valid')
-                x_smooth = np.arange(ROLLING_WINDOW - 1, len(y))
-                ax.plot(x_smooth, smoothed, linewidth=1.3, color='C1')
-        else:
-            y = (log_p + 0.5 * (z ** 2).sum(1)).numpy()   # reward = log_p + prior term
+        if mean_mode:
+            z = traces[k]['z']            # (n_steps, n_chains, latent_dim)
+            log_p = traces[k]['log_p']    # (n_steps, n_chains)
+            if metric == 'jump_distance':
+                y = torch.norm(z[1:] - z[:-1], dim=2).mean(dim=1).numpy()
+                ax.set_yscale('log')
+            else:
+                y = (log_p + 0.5 * (z ** 2).sum(2)).mean(dim=1).numpy()   # reward = log_p + prior term
             ax.plot(y, linewidth=0.8)
+        else:
+            z = traces[k]['z'][:, chain_idx, :]        # (n_steps, latent_dim)
+            log_p = traces[k]['log_p'][:, chain_idx]   # (n_steps,)
+            if metric == 'jump_distance':
+                y = torch.norm(z[1:] - z[:-1], dim=1).numpy()
+                ax.set_yscale('log')
+                ax.plot(y, linewidth=0.5, alpha=0.4, color='C0')
+                if len(y) >= ROLLING_WINDOW:
+                    smoothed = np.convolve(y, np.ones(ROLLING_WINDOW) / ROLLING_WINDOW, mode='valid')
+                    x_smooth = np.arange(ROLLING_WINDOW - 1, len(y))
+                    ax.plot(x_smooth, smoothed, linewidth=1.3, color='C1')
+            else:
+                y = (log_p + 0.5 * (z ** 2).sum(1)).numpy()   # reward = log_p + prior term
+                ax.plot(y, linewidth=0.8)
         ax.set_title(label_fn(k), fontsize=9)
         ax.set_xlabel('step', fontsize=8)
         ax.tick_params(labelsize=7)
@@ -209,11 +237,15 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         axes_flat[i].axis('off')
 
     ylabel = r'$\|z_{t+1} - z_t\|_2$' if metric == 'jump_distance' else 'log r(z)'
+    if mean_mode:
+        ylabel += f'  (mean over {n_chains} chains)'
     fig.supylabel(ylabel, fontsize=9)
-    fig.suptitle(f'{experiment} - {metric} ({mode}, chain {chain_idx})', fontsize=11)
+    which = f'mean over {n_chains} chains' if mean_mode else f'chain {chain_idx}'
+    fig.suptitle(f'{experiment} - {metric} ({mode}, {which})', fontsize=11)
     plt.tight_layout()
 
-    out_path = os.path.join(sub_dir, f'{metric}_{mode}_chain{chain_idx}.png')
+    suffix = 'mean' if mean_mode else f'chain{chain_idx}'
+    out_path = os.path.join(sub_dir, f'{metric}_{mode}_{suffix}.png')
     plt.savefig(out_path, dpi=150, bbox_inches='tight')
     plt.close()
     print(f'Saved {out_path}')
@@ -227,10 +259,12 @@ if __name__ == '__main__':
     parser.add_argument('--mode', choices=['stepsize', 'init'], default=None,
                          help='required for jump_distance/log_reward')
     parser.add_argument('--noise', choices=['same', 'indep', 'both'], default='both')
-    parser.add_argument('--chain', type=int, default=0,
-                         help='chain index for jump_distance/log_reward')
+    parser.add_argument('--chain', type=str, default='0',
+                         help="chain index for jump_distance/log_reward, or 'mean' "
+                              "for the across-chain average trend")
     parser.add_argument('--prompt', type=str, default=None)
     args = parser.parse_args()
+    chain = args.chain if args.chain == 'mean' else int(args.chain)
 
     if args.plot == 'stepsize':
         plot_stepsize_grid(args.experiment, prompt=args.prompt)
@@ -245,9 +279,9 @@ if __name__ == '__main__':
             noises = ['same', 'indep'] if args.noise == 'both' else [args.noise]
             for n in noises:
                 plot_trace(args.experiment, 'init', args.plot, noise=n,
-                           chain_idx=args.chain, prompt=args.prompt)
+                           chain_idx=chain, prompt=args.prompt)
         else:
             plot_trace(args.experiment, 'stepsize', args.plot,
-                       chain_idx=args.chain, prompt=args.prompt)
+                       chain_idx=chain, prompt=args.prompt)
 
     print('Done.')

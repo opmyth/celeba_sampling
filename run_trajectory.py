@@ -25,7 +25,15 @@ from samplers import latent_MALA_celeba
 from utils import load_imagereward
 
 STEP_SIZES     = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
-N_CHAINS       = 1
+# 100 (was 1, and 3 before that): enough chains to average log_reward/
+# jump_distance into a population convergence trend (plot_trajectory.py's
+# --chain mean) instead of judging convergence off one noisy walker. Image
+# grids stay per-chain and are capped at 2 chains in plot_init_grid, so this
+# doesn't multiply the decoded-image outputs - but it does multiply the saved
+# trace tensors: traces store every chain at every step, ~586MB per swept dt
+# at 3000 steps (~5.3GB for the full 9-dt stepsize sweep, ~1.8GB per init
+# noise setting), vs ~53MB total before.
+N_CHAINS       = 100
 N_CANDIDATES   = 10000
 INIT_TYPES     = ['random', 'cold', 'warm']
 
@@ -74,8 +82,9 @@ else:
     posterior = imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 # stylegan.G intentionally NOT compiled here: compile caches requires_grad
 # state, and every mode below toggles between the no-grad init scan and
-# grad-requiring MALA steps, which crashes a compiled G. These are small
-# (N_CHAINS=3) diagnostic runs, so compiling wouldn't pay off anyway.
+# grad-requiring MALA steps, which crashes a compiled G. (At N_CHAINS=100
+# compiling might otherwise pay off, unlike the old single-chain runs - the
+# crash is the binding constraint, not the workload size.)
 
 base_dir = os.path.join('experiments', args.experiment, 'trajectory')
 # imagereward experiments always get a prompt subdirectory (even for the
