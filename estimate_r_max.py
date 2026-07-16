@@ -39,6 +39,8 @@ from utils import load_imagereward
 parser = argparse.ArgumentParser()
 parser.add_argument('--n_samples', type=int, default=50000)
 parser.add_argument('--seed', type=int, default=321)
+parser.add_argument('--force', action='store_true',
+                     help='recompute prompts that already have a cached r_max instead of skipping them')
 args = parser.parse_args()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,15 +52,23 @@ print('Models loaded.', flush=True)
 
 cfg = EXPERIMENTS['bald_ir']
 out_path = 'experiments/bald_ir/r_max.pt'
+os.makedirs('experiments/bald_ir', exist_ok=True)
 r_max_by_prompt = torch.load(out_path, weights_only=False) if os.path.exists(out_path) else {}
 
 for prompt in cfg.prompts:
+    if prompt in r_max_by_prompt and not args.force:
+        print(f'\n=== prompt: "{prompt}" === already cached (M = {r_max_by_prompt[prompt]:.4f}), skipping '
+              f'(--force to recompute)', flush=True)
+        continue
     print(f'\n=== prompt: "{prompt}" ===', flush=True)
     generator = rng_mod.make_generator(args.seed, device)
     r_max = estimate_r_max(stylegan, reward_model, prompt, device, args.n_samples, generator)
     print(f'  M = {r_max:.4f}  (scanned {args.n_samples} samples)', flush=True)
     r_max_by_prompt[prompt] = r_max
+    # saved after every prompt (not just once at the end) - a scan is ~50000
+    # forward passes per prompt, expensive enough that losing an already-
+    # completed prompt to a later prompt's crash/timeout would be wasteful.
+    torch.save(r_max_by_prompt, out_path)
+    print(f'  Saved to {out_path}', flush=True)
 
-os.makedirs('experiments/bald_ir', exist_ok=True)
-torch.save(r_max_by_prompt, out_path)
-print(f'\nSaved to {out_path}', flush=True)
+print(f'\nDone. {out_path} has: {list(r_max_by_prompt.keys())}', flush=True)
