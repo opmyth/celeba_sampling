@@ -1,6 +1,6 @@
-"""One-off timing probe for N_CHAINS=100 trajectory runs (2026-07-16).
+"""One-off timing probe for multi-chain trajectory runs (2026-07-16).
 
-Measures the real per-step MALA cost at n_chains=100 for both posterior
+Measures the real per-step MALA cost at a given n_chains for both posterior
 kinds - imagereward (bald_ir) and classifier (notmale) - using the exact
 code path run_trajectory.py uses (same sampler, same init scan, same
 load_imagereward incl. BLIP torch.compile), WITHOUT touching any files in
@@ -8,7 +8,11 @@ experiments/ (run_trajectory.py --mode stepsize has no single-dt option and
 would overwrite the real saved trajectory .pt files with probe garbage).
 
 Usage (interactive srun session, after `source scripts/env.sh`):
-    python probe_timing.py [--n_chains 100] [--n_steps 300]
+    python probe_timing.py [--n_chains 25] [--n_steps 300]
+
+Results are printed AND appended to probe_timing_results.txt (repo root) -
+appended, not overwritten, so successive probes at different chain counts /
+GPUs accumulate into one timestamped record.
 
 Extrapolation the numbers feed (per experiment, reduced 4-dt grid - see
 run_trajectory._step_sizes_for):
@@ -20,7 +24,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'sty
 
 import warnings
 warnings.filterwarnings("ignore")
-import argparse, torch
+import argparse, datetime, torch
 
 import rng as rng_mod
 from config import EXPERIMENTS
@@ -31,14 +35,25 @@ from samplers import latent_MALA_celeba
 from utils import load_imagereward
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--n_chains', type=int, default=100)
+parser.add_argument('--n_chains', type=int, default=25)
 parser.add_argument('--n_steps', type=int, default=300)
+parser.add_argument('--out', type=str, default='probe_timing_results.txt',
+                     help='results file; appended to, so successive probes accumulate')
 args = parser.parse_args()
+
+_lines = []
+
+
+def log(msg=''):
+    print(msg, flush=True)
+    _lines.append(msg)
+
 
 device = torch.device('cuda')
 N, STEPS = args.n_chains, args.n_steps
-print(f'Probe: n_chains={N}, n_steps={STEPS}', flush=True)
-print(torch.cuda.get_device_name(0), flush=True)
+log(f'=== probe {datetime.datetime.now().isoformat(timespec="seconds")} ===')
+log(f'n_chains={N}, n_steps={STEPS}, gpu={torch.cuda.get_device_name(0)}, '
+    f'node={os.environ.get("SLURMD_NODENAME", "local")}, job={os.environ.get("SLURM_JOB_ID", "none")}')
 
 stylegan = load_stylegan(device)
 
@@ -49,7 +64,7 @@ def probe(tag, posterior, dt):
     z0 = get_init_z('cold', posterior.reward_only_fn, N, stylegan.latent_dim,
                      device, init_gen, n_candidates=10000)
     t_init = time.time() - t0
-    print(f'[{tag}] init scan 10000 candidates: {t_init:.1f}s', flush=True)
+    log(f'[{tag}] init scan 10000 candidates: {t_init:.1f}s')
 
     t0 = time.time()
     latent_MALA_celeba(posterior, N, STEPS, dt, stylegan.latent_dim, device,
@@ -57,8 +72,8 @@ def probe(tag, posterior, dt):
                         burnin=0, thin_k=1, z_init=z0)
     el = time.time() - t0
     per_3000 = el * (3000 / STEPS)
-    print(f'[{tag}] MALA {STEPS} steps @ n_chains={N}: {el:.1f}s '
-          f'-> {STEPS/el:.3f} it/s -> {per_3000/60:.1f} min per 3000-step run', flush=True)
+    log(f'[{tag}] MALA {STEPS} steps @ n_chains={N}: {el:.1f}s '
+        f'-> {STEPS/el:.3f} it/s -> {per_3000/60:.1f} min per 3000-step run')
     return t_init, per_3000
 
 
@@ -73,10 +88,15 @@ cfg2 = EXPERIMENTS['notmale']
 post_clf = classifier_posterior(stylegan, [load_classifier(n, device) for n in cfg2.clf_names])
 clf_init, clf_run = probe('CLF', post_clf, cfg2.dt_mala)
 
-print('\n=== extrapolation (this GPU, 3000 steps, reduced 4-dt grid) ===', flush=True)
+log()
+log(f'=== extrapolation (this GPU, 3000 steps, reduced 4-dt grid) ===')
 for tag, t_init, per_run in [('IR', ir_init, ir_run), ('CLF', clf_init, clf_run)]:
     stepsize = (4 * per_run + t_init) / 3600
     init_sweep = (2 * 3 * (t_init + per_run)) / 3600
-    print(f'[{tag}] stepsize sweep (4 dt): {stepsize:.1f}h | '
-          f'init sweep (3 types x 2 noise): {init_sweep:.1f}h | '
-          f'both: {stepsize + init_sweep:.1f}h', flush=True)
+    log(f'[{tag}] stepsize sweep (4 dt): {stepsize:.1f}h | '
+        f'init sweep (3 types x 2 noise): {init_sweep:.1f}h | '
+        f'both: {stepsize + init_sweep:.1f}h')
+
+with open(args.out, 'a') as f:
+    f.write('\n'.join(_lines) + '\n\n')
+print(f'\nResults appended to {args.out}', flush=True)
