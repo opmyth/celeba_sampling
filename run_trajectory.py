@@ -24,18 +24,39 @@ from init_scan import get_init_z
 from samplers import latent_MALA_celeba
 from utils import load_imagereward
 
-STEP_SIZES     = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
-# 100 (was 1, and 3 before that): enough chains to average log_reward/
-# jump_distance into a population convergence trend (plot_trajectory.py's
-# --chain mean) instead of judging convergence off one noisy walker. Image
-# grids stay per-chain and are capped at 2 chains in plot_init_grid, so this
-# doesn't multiply the decoded-image outputs - but it does multiply the saved
-# trace tensors: traces store every chain at every step, ~586MB per swept dt
-# at 3000 steps (~5.3GB for the full 9-dt stepsize sweep, ~1.8GB per init
-# noise setting), vs ~53MB total before.
-N_CHAINS       = 100
+# The original 9-value grid, now only the pool the reduced per-experiment
+# grid is drawn from (see _step_sizes_for below). Sweeping all 9 at high
+# chain counts was measured at ~20h/experiment for imagereward on an A6000 -
+# infeasible; the extremes plus the production-dt neighborhood carry the
+# information that grid existed for.
+_FULL_STEP_GRID = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005, 0.0001, 0.00005, 0.00001]
+
+# 25 (was 100 for one uncommitted day, 1 before that, 3 originally): enough
+# chains for plot_trajectory.py's --chain mean population convergence trend
+# without the 100-chain cost (probe-measured at N=100: 2.2h per 3000-step
+# imagereward run on an A6000; N=25 re-probed before any full sweep). Image
+# grids stay capped at 2 chains in plot_init_grid regardless. Saved traces
+# store every chain at every step: ~147MB per swept dt at 3000 steps, vs
+# ~586MB at N=100 and ~6MB at N=1.
+N_CHAINS       = 25
 N_CANDIDATES   = 10000
 INIT_TYPES     = ['random', 'cold', 'warm']
+
+
+def _step_sizes_for(dt_prod):
+    """Reduced 4-value stepsize grid for one experiment: both extremes of the
+    old 9-value grid (0.1, 0.001), the experiment's actual production dt
+    itself, and its nearest neighbor(s) from the old grid to bracket it -
+    padded/trimmed to exactly 4 by proximity to the production dt. For every
+    current experiment (dt_mala is 0.1 or 0.05 across the whole registry)
+    this resolves to [0.1, 0.05, 0.01, 0.001]; it's computed rather than
+    hardcoded so a future dt change automatically re-centers the grid."""
+    chosen = {0.1, 0.001, dt_prod}
+    for g in sorted(_FULL_STEP_GRID, key=lambda g: abs(g - dt_prod)):
+        if len(chosen) >= 4:
+            break
+        chosen.add(g)
+    return sorted(chosen, reverse=True)
 
 # Fractions of n_steps to snapshot - reproduces the original hardcoded
 # {0,50,100,200,300,500,750,1000,2000,3000} exactly at n_steps=3000, and
@@ -70,6 +91,7 @@ SNAPSHOT_STEPS = _snapshot_steps(args.n_steps)
 
 cfg = EXPERIMENTS[args.experiment]
 prompt = args.prompt or cfg.prompt
+STEP_SIZES = _step_sizes_for(cfg.dt_mala)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
@@ -82,9 +104,9 @@ else:
     posterior = imagereward_posterior(stylegan, reward_model, prompt, device, load_r_max(prompt))
 # stylegan.G intentionally NOT compiled here: compile caches requires_grad
 # state, and every mode below toggles between the no-grad init scan and
-# grad-requiring MALA steps, which crashes a compiled G. (At N_CHAINS=100
-# compiling might otherwise pay off, unlike the old single-chain runs - the
-# crash is the binding constraint, not the workload size.)
+# grad-requiring MALA steps, which crashes a compiled G. (At multi-chain
+# counts compiling might otherwise pay off, unlike the old single-chain runs
+# - the crash is the binding constraint, not the workload size.)
 
 base_dir = os.path.join('experiments', args.experiment, 'trajectory')
 # imagereward experiments always get a prompt subdirectory (even for the

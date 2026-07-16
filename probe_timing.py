@@ -10,8 +10,9 @@ would overwrite the real saved trajectory .pt files with probe garbage).
 Usage (interactive srun session, after `source scripts/env.sh`):
     python probe_timing.py [--n_chains 100] [--n_steps 300]
 
-Extrapolation the numbers feed (per experiment):
-    stepsize sweep = 9 x (3000-step run) + 1 init scan
+Extrapolation the numbers feed (per experiment, reduced 4-dt grid - see
+run_trajectory._step_sizes_for):
+    stepsize sweep = 4 x (3000-step run) + 1 init scan
     init sweep     = 2 noise settings x 3 x (init scan + 3000-step run)
 """
 import sys, os, time
@@ -72,10 +73,10 @@ cfg2 = EXPERIMENTS['notmale']
 post_clf = classifier_posterior(stylegan, [load_classifier(n, device) for n in cfg2.clf_names])
 clf_init, clf_run = probe('CLF', post_clf, cfg2.dt_mala)
 
-print('\n=== extrapolation (this GPU, 3000 steps) ===', flush=True)
+print('\n=== extrapolation (this GPU, 3000 steps, reduced 4-dt grid) ===', flush=True)
 for tag, t_init, per_run in [('IR', ir_init, ir_run), ('CLF', clf_init, clf_run)]:
-    stepsize = (9 * per_run + t_init) / 3600
+    stepsize = (4 * per_run + t_init) / 3600
     init_sweep = (2 * 3 * (t_init + per_run)) / 3600
-    print(f'[{tag}] stepsize sweep (9 dt): {stepsize:.1f}h | '
+    print(f'[{tag}] stepsize sweep (4 dt): {stepsize:.1f}h | '
           f'init sweep (3 types x 2 noise): {init_sweep:.1f}h | '
           f'both: {stepsize + init_sweep:.1f}h', flush=True)
