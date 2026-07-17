@@ -86,6 +86,86 @@ def latent_MALA_celeba(posterior: Posterior, n_chains, n_steps, dt, latent_dim, 
     return samples, log_p_kept, accept_count / n_steps, log_p_trace
 
 
+def anneal_temps(n_temps):
+    """Geometric temperature ladder sqrt(2)^n for n = n_temps..0 (largest T
+    first, ends at 1). n_temps=6 -> 7 temps, ~8 down to 1."""
+    return [2 ** (n / 2) for n in range(n_temps, -1, -1)]
+
+
+def anneal_dt_schedule(dt_base, n_temps, mode='flat'):
+    """Per-temperature annealing step sizes, aligned with anneal_temps
+    (largest-T first). 'flat' -> None (caller uses dt_base at every temp);
+    'inv_sqrt_t' -> dt_base / sqrt(T). Returns a list (or None for flat)
+    suitable for the dt_anneal argument below."""
+    if mode == 'flat':
+        return None
+    if mode == 'inv_sqrt_t':
+        return [dt_base / (T ** 0.5) for T in anneal_temps(n_temps)]
+    raise ValueError(f"anneal_dt_mode must be 'flat' or 'inv_sqrt_t', got {mode!r}")
+
+
+def anneal_to_T1(posterior: Posterior, z, n_chains, latent_dim, device, generator,
+                 n_temps, annealing_steps, dt, dt_anneal=None, return_trace=False):
+    """Run the annealing phase in place on z: MALA targeting pi_T for T from
+    sqrt(2)^n_temps down to 1, annealing_steps split evenly across temps. NO
+    samples kept (this is burn-in). Returns (z_final, per_temp, trace) where
+    per_temp is a list of (T, dt_T, accept_rate). Shared by
+    latent_annealed_MALA_celeba and the accept-rate probe so both compute
+    exactly the same thing.
+
+    Likelihood-only tempering: log pi_T = -0.5||z||^2 + (1/T) log r(z),
+    grad = -z + (1/T) grad log r(z) - derived arithmetically from the
+    untempered Posterior. scale_drift variant (drift dt*grad, noise
+    sqrt(2dt)*eta), accept ratio + proposal q both under pi_T."""
+    temps = anneal_temps(n_temps)
+    if dt_anneal is None:
+        dt_anneal = [dt] * len(temps)
+    if len(dt_anneal) != len(temps):
+        raise ValueError(f'dt_anneal needs {len(temps)} entries (one per temperature), got {len(dt_anneal)}')
+    steps_per_temp = annealing_steps // len(temps)
+
+    def _tempered_grad_and_log_p(z, T):
+        g, lp = posterior.grad_and_log_p_fn(z)
+        if T == 1:
+            return g, lp
+        log_prior = -0.5 * (z ** 2).sum(1)
+        reward = lp - log_prior          # log r(z)
+        reward_grad = g + z              # grad log r(z)
+        return -z + reward_grad / T, log_prior + reward / T
+
+    per_temp = []
+    trace = [] if return_trace else None
+    for T, dt_T in zip(temps, dt_anneal):
+        if steps_per_temp == 0:
+            break
+        noise_scale = (2 * dt_T) ** 0.5
+        z_grad, log_p_z = _tempered_grad_and_log_p(z, T)
+        accept_count = 0
+        for _ in tqdm(range(steps_per_temp), desc=f'anneal T={T:.2f}'):
+            noise = _draw_noise(z.shape, device, generator)
+            z_prop = z + dt_T * z_grad + noise_scale * noise
+            z_prop_grad, log_p_prop = _tempered_grad_and_log_p(z_prop, T)
+
+            log_q_fwd = -torch.sum((z_prop - (z + dt_T * z_grad)) ** 2, dim=1) / (4 * dt_T)
+            log_q_bwd = -torch.sum((z - (z_prop + dt_T * z_prop_grad)) ** 2, dim=1) / (4 * dt_T)
+            log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
+
+            u = torch.rand(n_chains, device=device, generator=generator)
+            accept = torch.log(u) <= log_alpha
+            accept_count += accept.float().mean().item()
+
+            mask = accept.unsqueeze(1)
+            z = torch.where(mask, z_prop, z)
+            z_grad = torch.where(mask, z_prop_grad, z_grad)
+            log_p_z = torch.where(accept, log_p_prop, log_p_z)
+            if return_trace:
+                trace.append(log_p_z.detach().cpu().clone())
+        rate = accept_count / steps_per_temp
+        per_temp.append((T, dt_T, rate))
+        print(f'  anneal T={T:.3f} (dt={dt_T:.4g}): accept={rate:.1%}', flush=True)
+    return z, per_temp, trace
+
+
 def latent_annealed_MALA_celeba(posterior: Posterior, n_chains, n_steps, dt, latent_dim, device,
                                  generator=None, burnin=0, thin_k=1, z_init=None,
                                  return_diagnostics=False,
@@ -127,56 +207,19 @@ def latent_annealed_MALA_celeba(posterior: Posterior, n_chains, n_steps, dt, lat
     annealing+tail concatenation ((annealing_steps_used + n_steps, n_chains))
     with annealing entries being log pi_T at that step's own temperature.
     """
-    temps = [2 ** (n / 2) for n in range(n_temps, -1, -1)]   # sqrt(2)^n, largest first
-    if dt_anneal is None:
-        dt_anneal = [dt] * len(temps)
-    if len(dt_anneal) != len(temps):
-        raise ValueError(f'dt_anneal needs {len(temps)} entries (one per temperature), got {len(dt_anneal)}')
-    steps_per_temp = annealing_steps // len(temps)
-
-    def _tempered_grad_and_log_p(z, T):
-        g, lp = posterior.grad_and_log_p_fn(z)
-        if T == 1:
-            return g, lp
-        log_prior = -0.5 * (z ** 2).sum(1)
-        reward = lp - log_prior          # log r(z)
-        reward_grad = g + z              # grad log r(z)
-        return -z + reward_grad / T, log_prior + reward / T
-
     z = z_init.clone().to(device) if z_init is not None else \
         _draw_noise((n_chains, latent_dim), device, generator)
-    anneal_trace = [] if return_diagnostics else None
 
-    for T, dt_T in zip(temps, dt_anneal):
-        if steps_per_temp == 0:
-            break
-        noise_scale = (2 * dt_T) ** 0.5
-        z_grad, log_p_z = _tempered_grad_and_log_p(z, T)
-        accept_count = 0
-        for _ in tqdm(range(steps_per_temp), desc=f'anneal T={T:.2f}'):
-            noise = _draw_noise(z.shape, device, generator)
-            z_prop = z + dt_T * z_grad + noise_scale * noise
-            z_prop_grad, log_p_prop = _tempered_grad_and_log_p(z_prop, T)
+    # Phase a - annealing (no samples kept). Extracted to anneal_to_T1 so the
+    # accept-rate probe computes exactly this; RNG draw order is unchanged from
+    # the original inline loop, so the eyeglasses validation still reproduces.
+    z, _per_temp, anneal_trace = anneal_to_T1(
+        posterior, z, n_chains, latent_dim, device, generator,
+        n_temps, annealing_steps, dt, dt_anneal, return_trace=return_diagnostics)
 
-            log_q_fwd = -torch.sum((z_prop - (z + dt_T * z_grad)) ** 2, dim=1) / (4 * dt_T)
-            log_q_bwd = -torch.sum((z - (z_prop + dt_T * z_prop_grad)) ** 2, dim=1) / (4 * dt_T)
-            log_alpha = torch.clamp(log_p_prop + log_q_bwd - log_p_z - log_q_fwd, max=0)
-
-            u = torch.rand(n_chains, device=device, generator=generator)
-            accept = torch.log(u) <= log_alpha
-            accept_count += accept.float().mean().item()
-
-            mask = accept.unsqueeze(1)
-            z = torch.where(mask, z_prop, z)
-            z_grad = torch.where(mask, z_prop_grad, z_grad)
-            log_p_z = torch.where(accept, log_p_prop, log_p_z)
-            if return_diagnostics:
-                anneal_trace.append(log_p_z.detach().cpu().clone())
-        print(f'  anneal T={T:.3f} (dt={dt_T}): accept={accept_count / steps_per_temp:.1%}', flush=True)
-
-    # T=1 tail: delegate to the plain sampler so tail behavior is identical
-    # to the non-annealed pipeline by construction (same code, same
-    # burnin/thin_k semantics) - the annealed run only differs by its z_init.
+    # Phase b - T=1 tail: delegate to the plain sampler so tail behavior is
+    # identical to the non-annealed pipeline by construction (same code, same
+    # burnin/thin_k) - the annealed run only differs by its z_init.
     samples, log_p_kept, accept_rate, tail_trace = latent_MALA_celeba(
         posterior, n_chains, n_steps, dt, latent_dim, device,
         generator=generator, burnin=burnin, thin_k=thin_k, z_init=z,

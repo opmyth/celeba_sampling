@@ -21,7 +21,7 @@ from config import EXPERIMENTS
 from model_loader import load_models
 from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from init_scan import get_init_z
-from samplers import latent_MALA_celeba
+from samplers import latent_MALA_celeba, latent_annealed_MALA_celeba, anneal_dt_schedule
 from utils import load_imagereward
 
 # The original 9-value grid, now only the pool the reduced per-experiment
@@ -84,6 +84,10 @@ parser.add_argument('--init', default='cold', choices=INIT_TYPES,
 parser.add_argument('--prompt', type=str, default=None,
                      help='override the config default prompt (imagereward experiments only)')
 parser.add_argument('--n_steps', type=int, default=3000)
+parser.add_argument('--sampler', default='MALA', choices=['MALA', 'ANNEALED_MALA'],
+                     help='which sampler to run the trajectory with (default plain MALA). '
+                          'ANNEALED_MALA warms up per config then runs the T=1 tail as MALA - '
+                          'the saved trace/snapshots are the tail, from the annealed start state.')
 parser.add_argument('--seed', type=int, default=42)
 args = parser.parse_args()
 
@@ -122,9 +126,20 @@ base_dir = os.path.join(_expr_root, 'trajectory')
 
 
 def run_mala_with_trace(dt, z_init, generator):
-    samples, log_p_kept, accept_rate, _ = latent_MALA_celeba(
-        posterior, N_CHAINS, args.n_steps, dt, stylegan.latent_dim, device,
-        generator=generator, burnin=0, thin_k=1, z_init=z_init)
+    # ANNEALED_MALA: warm up per config, then the T=1 tail is plain MALA at
+    # this dt with burnin=0/thin_k=1 (full trace) - so the saved snapshots/trace
+    # are the tail, started from the annealed state. dt_anneal tracks the swept
+    # dt so the annealing scales with the tail step size in stepsize mode.
+    if args.sampler == 'ANNEALED_MALA':
+        samples, log_p_kept, accept_rate, _ = latent_annealed_MALA_celeba(
+            posterior, N_CHAINS, args.n_steps, dt, stylegan.latent_dim, device,
+            generator=generator, burnin=0, thin_k=1, z_init=z_init,
+            n_temps=cfg.anneal_n_temps, annealing_steps=cfg.anneal_steps,
+            dt_anneal=anneal_dt_schedule(dt, cfg.anneal_n_temps, cfg.anneal_dt_mode))
+    else:
+        samples, log_p_kept, accept_rate, _ = latent_MALA_celeba(
+            posterior, N_CHAINS, args.n_steps, dt, stylegan.latent_dim, device,
+            generator=generator, burnin=0, thin_k=1, z_init=z_init)
     snaps = {step: samples[min(step, len(samples) - 1)].cpu()
              for step in SNAPSHOT_STEPS if step <= args.n_steps}
     trace = {'z': torch.stack(samples).cpu(), 'log_p': torch.stack(log_p_kept).cpu()}

@@ -12,7 +12,8 @@ from config import EXPERIMENTS
 from model_loader import load_models
 from posteriors import classifier_posterior, imagereward_posterior, load_r_max
 from init_scan import get_init_z
-from samplers import latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba
+from samplers import (latent_ULA_celeba, latent_MALA_celeba, latent_Gaussian_MH_celeba,
+                       latent_annealed_MALA_celeba, anneal_dt_schedule)
 from utils import (compute_w2, compute_diversity, compute_diversity_cov,
                     compute_male_fraction, load_imagereward)
 
@@ -20,6 +21,7 @@ SAMPLER_FNS = {
     'ULA': latent_ULA_celeba,
     'MALA': latent_MALA_celeba,
     'G_MH': latent_Gaussian_MH_celeba,
+    'ANNEALED_MALA': latent_annealed_MALA_celeba,
 }
 
 
@@ -28,7 +30,7 @@ def _slug(s):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--experiment', required=True, choices=list(EXPERIMENTS))
-parser.add_argument('--sampler', required=True, choices=['ULA', 'MALA', 'G_MH'])
+parser.add_argument('--sampler', required=True, choices=['ULA', 'MALA', 'G_MH', 'ANNEALED_MALA'])
 parser.add_argument('--init', type=str, default='random', choices=['random', 'cold', 'warm'])
 parser.add_argument('--prompt', type=str, default=None,
                      help='override the config default prompt (imagereward experiments only)')
@@ -66,12 +68,25 @@ if cfg.kind == 'imagereward':
 rs_path     = args.rs_path or os.path.join(prompt_dir, 'results_rs.pt')
 output_path = args.output_path or os.path.join(prompt_dir, f'results_{args.sampler.lower()}.pt')
 
-if args.sampler == 'MALA':
+if args.sampler in ('MALA', 'ANNEALED_MALA'):
+    # ANNEALED_MALA's param is its T=1 tail dt = plain MALA's dt, so the tail
+    # (and the results-table row) is identical to MALA; annealing only changes
+    # the tail's starting state.
     param = args.dt if args.dt is not None else cfg.dt_mala
 elif args.sampler == 'ULA':
     param = args.dt if args.dt is not None else cfg.dt_ula
 else:
     param = args.sigma if args.sigma is not None else cfg.sigma_gmh
+
+# extra kwargs only for ANNEALED_MALA (n_temps/annealing_steps/dt_anneal from
+# config); empty for every other sampler so their call is unchanged.
+sampler_kwargs = {}
+if args.sampler == 'ANNEALED_MALA':
+    sampler_kwargs = dict(
+        n_temps=cfg.anneal_n_temps,
+        annealing_steps=cfg.anneal_steps,
+        dt_anneal=anneal_dt_schedule(param, cfg.anneal_n_temps, cfg.anneal_dt_mode),
+    )
 
 wandb.init(
     project="dissertation-stylegan-sampling",
@@ -109,7 +124,8 @@ for trial in range(n_trials):
     generator = rng_mod.make_generator(args.seed + trial, device)
     samples, log_p_kept, accept_rate, _ = sampler_fn(
         posterior, n_chains, n_steps, param, stylegan.latent_dim, device,
-        generator=generator, burnin=burnin, thin_k=thin_k, z_init=z_init_tensor)
+        generator=generator, burnin=burnin, thin_k=thin_k, z_init=z_init_tensor,
+        **sampler_kwargs)
 
     if accept_rate is not None:
         accept_rates.append(accept_rate)

@@ -20,6 +20,17 @@ class ExperimentConfig:
     dt_ula: Optional[float] = 0.01
     sigma_gmh: float = _SIGMA_OPT
 
+    # ANNEALED_MALA config (only used when 'ANNEALED_MALA' is in samplers).
+    # The annealing phase warms up to T=1, then the T=1 tail is plain MALA at
+    # dt_mala with the standard n_steps/burnin/thin_k - so the tail (and thus
+    # kept_per_chain / the results-table row) is identical to plain MALA; only
+    # the chain's starting state differs. anneal_dt_mode: 'flat' (dt_mala at
+    # every temperature) or 'inv_sqrt_t' (dt_mala/sqrt(T)); set per experiment
+    # from the accept-rate probe (probe_anneal.py).
+    anneal_n_temps: int = 6
+    anneal_steps: int = 700
+    anneal_dt_mode: str = 'flat'
+
     n_chains: int = 100     # parallel walkers for ULA/MALA/G_MH
     n_trials: int = 5
     n_steps: int = 3000
@@ -50,6 +61,7 @@ EXPERIMENTS = {
     ),
     'bald': ExperimentConfig(
         name='bald', kind='classifier', clf_names=['bald'],
+        samplers=['ULA', 'MALA', 'G_MH', 'ANNEALED_MALA'],   # narrow posterior - annealing target
         dt_mala=0.1, dt_ula=0.01, sigma_gmh=0.105,
     ),
     'male': ExperimentConfig(
@@ -86,7 +98,7 @@ EXPERIMENTS = {
         # reject a step that overshoots into a blow-up region - one diverged
         # chain NaNs the whole batch. Only the Metropolis-corrected samplers
         # (MALA, G_MH) are stable here. dt_ula kept for reference but unused.
-        samplers=['MALA', 'G_MH'],
+        samplers=['MALA', 'G_MH', 'ANNEALED_MALA'],   # ULA dropped (diverges); annealing added
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
         # 2026-07-16: was n_steps=1000, burnin=200, thin_k=80 - same
         # kept_per_chain=10 but only a third of the classifier experiments'
@@ -105,16 +117,19 @@ EXPERIMENTS = {
     # with a non-negative trend before it turns unstable for ULA).
     'wearing_hat': ExperimentConfig(
         name='wearing_hat', kind='classifier', clf_names=['WearingHat'],
+        samplers=['ULA', 'MALA', 'G_MH', 'ANNEALED_MALA'],   # narrow posterior - annealing target
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=0.105,
         rs_target=1000,
     ),
     'male_hat': ExperimentConfig(
         name='male_hat', kind='classifier', clf_names=['male', 'WearingHat'],
+        samplers=['ULA', 'MALA', 'G_MH', 'ANNEALED_MALA'],   # narrow joint posterior - annealing target
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
         rs_target=1000,
     ),
     'notmale_hat': ExperimentConfig(
         name='notmale_hat', kind='classifier', clf_names=['not_male', 'WearingHat'],
+        samplers=['ULA', 'MALA', 'G_MH', 'ANNEALED_MALA'],   # narrow joint posterior - annealing target
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
         rs_target=1000,
     ),
