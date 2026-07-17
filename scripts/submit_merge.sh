@@ -7,6 +7,7 @@
 #SBATCH --job-name=merge_results
 #SBATCH -p Teaching
 #SBATCH --account=general-teaching
+#SBATCH --exclude=opencast,damnii12
 #SBATCH --time=00:30:00
 #SBATCH --output=logs/merge-%j.out
 #SBATCH --error=logs/merge-%j.err

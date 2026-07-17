@@ -32,7 +32,13 @@ output_path = args.output_path or f'{expr_dir}/results_stylegan.pt'
 
 def _load(stage_name):
     path = os.path.join(expr_dir, f'results_{stage_name}.pt')
-    return torch.load(path, weights_only=False) if os.path.exists(path) else None
+    # map_location='cpu': stage files contain CUDA tensors (saved from GPU
+    # memory by the sampler jobs), but merging is CPU-only work and may run
+    # on a GPU-less allocation (submit_merge.sh) - without this, torch.load
+    # crashes wherever torch.cuda.is_available() is False. Also means the
+    # merged results_stylegan.pt holds CPU tensors, which is what every
+    # consumer (notebook, EXPERIMENTS.md stats) wants anyway.
+    return torch.load(path, weights_only=False, map_location='cpu') if os.path.exists(path) else None
 
 
 prior = _load('prior')
