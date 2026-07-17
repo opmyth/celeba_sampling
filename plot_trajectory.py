@@ -26,22 +26,24 @@ def _slug(s):
     return s.lower().replace(' ', '_')
 
 
-def _prompt_slug(cfg, prompt):
-    return f'prompt_{_slug(prompt)}' if cfg.kind == 'imagereward' else None
+def _traj_base(cfg, experiment, prompt):
+    """experiments/<exp>/trajectory, or experiments/<exp>/prompt_<slug>/trajectory
+    for imagereward experiments - prompt is the top-level container (results +
+    trajectory both live under it), so a prompt's trajectory dir is structurally
+    identical to a classifier experiment's, just one level deeper."""
+    root = os.path.join('experiments', experiment)
+    if cfg.kind == 'imagereward':
+        root = os.path.join(root, f'prompt_{_slug(prompt)}')
+    return os.path.join(root, 'trajectory')
 
 
 def _stepsize_dir(cfg, experiment, prompt):
-    base = os.path.join('experiments', experiment, 'trajectory')
-    slug = _prompt_slug(cfg, prompt)
-    return os.path.join(base, slug) if slug else base
+    return _traj_base(cfg, experiment, prompt)
 
 
 def _init_dir(cfg, experiment, prompt, noise):
-    base = os.path.join('experiments', experiment, 'trajectory')
     noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
-    d = os.path.join(base, noise_dir)
-    slug = _prompt_slug(cfg, prompt)
-    return os.path.join(d, slug) if slug else d
+    return os.path.join(_traj_base(cfg, experiment, prompt), noise_dir)
 
 
 def _build_posterior(cfg, stylegan, clfs, prompt, device):

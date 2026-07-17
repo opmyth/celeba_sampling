@@ -111,10 +111,14 @@ else:
 # counts compiling might otherwise pay off, unlike the old single-chain runs
 # - the crash is the binding constraint, not the workload size.)
 
-base_dir = os.path.join('experiments', args.experiment, 'trajectory')
-# imagereward experiments always get a prompt subdirectory (even for the
-# config default prompt) so runs for different prompts never collide.
-prompt_slug = f'prompt_{_slug(prompt)}' if cfg.kind == 'imagereward' else None
+# imagereward experiments nest EVERYTHING under prompt_<slug>/ (results +
+# trajectory alike), so a prompt's trajectory dir is structurally identical
+# to a classifier experiment's - just one level deeper. Classifier
+# experiments have no prompt and use experiments/<exp>/trajectory directly.
+_expr_root = os.path.join('experiments', args.experiment)
+if cfg.kind == 'imagereward':
+    _expr_root = os.path.join(_expr_root, f'prompt_{_slug(prompt)}')
+base_dir = os.path.join(_expr_root, 'trajectory')
 
 
 def run_mala_with_trace(dt, z_init, generator):
