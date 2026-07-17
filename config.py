@@ -79,6 +79,14 @@ EXPERIMENTS = {
         # diagnostics scope. r_max.pt keeps its stale 'a bald person' entry
         # harmlessly (lookup is by prompt key).
         prompts=['a bald man', 'a person with a shaved head'],
+        # ULA dropped 2026-07-17: it diverges (NaN) on the ImageReward
+        # posterior at EVERY step size tried (0.01/0.005/0.002/0.001/0.0005 via
+        # sweep_hyperparams.py). Unlike the bounded classifier reward, IR's
+        # gradients are unbounded/spiky, and ULA has no accept/reject step to
+        # reject a step that overshoots into a blow-up region - one diverged
+        # chain NaNs the whole batch. Only the Metropolis-corrected samplers
+        # (MALA, G_MH) are stable here. dt_ula kept for reference but unused.
+        samplers=['MALA', 'G_MH'],
         dt_mala=0.05, dt_ula=0.01, sigma_gmh=_SIGMA_OPT,
         # 2026-07-16: was n_steps=1000, burnin=200, thin_k=80 - same
         # kept_per_chain=10 but only a third of the classifier experiments'
