@@ -29,11 +29,23 @@ def maybe_enable_tf32():
 def compute_w2(samples_1, samples_2):
     samples_1_np = samples_1.detach().cpu().numpy()
     samples_2_np = samples_2.detach().cpu().numpy()
-    
+
+    # ot.emd2 silently returns 0.0 when the cost matrix contains NaN - a
+    # diverged sampler (e.g. bald_ir ULA at dt=0.01, 2026-07-17: 992/1000
+    # NaN samples) would otherwise show up in results tables as a *perfect*
+    # W2 of 0.0. Return NaN loudly instead: unmistakable in any table, and
+    # doesn't crash the pipeline stage after its expensive sampling is done.
+    if np.isnan(samples_1_np).any() or np.isnan(samples_2_np).any():
+        print(f'WARNING compute_w2: NaN in input samples '
+              f'({np.isnan(samples_1_np).any(axis=1).sum()}/{len(samples_1_np)} and '
+              f'{np.isnan(samples_2_np).any(axis=1).sum()}/{len(samples_2_np)} rows) - '
+              f'returning NaN, not a real distance', flush=True)
+        return float('nan')
+
     n1, n2 = samples_1_np.shape[0], samples_2_np.shape[0]
     a = np.ones(n1) / n1
     b = np.ones(n2) / n2
-    
+
     M = ot.dist(samples_1_np, samples_2_np, metric='sqeuclidean')
     w2_squared = ot.emd2(a, b, M)
     return np.sqrt(w2_squared)
