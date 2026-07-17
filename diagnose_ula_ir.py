@@ -38,17 +38,28 @@ parser.add_argument('--n_chains', type=int, default=100)
 parser.add_argument('--n_steps', type=int, default=1000)
 parser.add_argument('--prompt', type=str, default='a bald man')
 parser.add_argument('--seed', type=int, default=321)
+parser.add_argument('--out', type=str, default='diagnose_ula_ir_results.txt',
+                     help='results file; appended to (timestamped), so successive runs accumulate')
 args = parser.parse_args()
 maybe_enable_tf32()
 
+import datetime
+_lines = []
+
+
+def log(msg=''):
+    print(msg, flush=True)
+    _lines.append(msg)
+
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(f'Device: {device}', flush=True)
+log(f'=== diagnose_ula_ir {datetime.datetime.now().isoformat(timespec="seconds")} ===')
+log(f'device={device}, node={os.environ.get("SLURMD_NODENAME", "local")}, '
+    f'dt={args.dt}, n_chains={args.n_chains}, n_steps={args.n_steps}, prompt="{args.prompt}"')
 stylegan = load_stylegan(device)
 reward_model = load_imagereward(device)
 r_max_clip = load_r_max(args.prompt)
-print(f'clipped r_max (M) = {r_max_clip:.4f}', flush=True)
-print(f'\n=== ULA dt={args.dt}, {args.n_chains} chains, {args.n_steps} steps, '
-      f'prompt="{args.prompt}" ===', flush=True)
+log(f'clipped r_max (M) = {r_max_clip:.4f}')
 
 
 def run(label, r_max):
@@ -63,11 +74,14 @@ def run(label, r_max):
     first = int(nan_step.float().argmax().item()) if bool(nan_step.any()) else None
     final_nan = int(torch.isnan(trace[-1]).sum().item())
     if first is None:
-        print(f'[{label}] survived all {args.n_steps} steps, 0 NaN chains', flush=True)
+        log(f'[{label}] survived all {args.n_steps} steps, 0 NaN chains')
     else:
-        print(f'[{label}] first NaN at step {first}, {final_nan}/{args.n_chains} chains NaN by end', flush=True)
+        log(f'[{label}] first NaN at step {first}, {final_nan}/{args.n_chains} chains NaN by end')
 
 
 run('CLIPPED (this week)', r_max_clip)
 run('UNCLIPPED (old-style raw IR)', float('inf'))
-print('\nDone.', flush=True)
+
+with open(args.out, 'a') as f:
+    f.write('\n'.join(_lines) + '\n\n')
+print(f'\nDone. Results appended to {args.out}', flush=True)
