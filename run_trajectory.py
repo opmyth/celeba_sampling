@@ -123,6 +123,11 @@ _expr_root = os.path.join('experiments', args.experiment)
 if cfg.kind == 'imagereward':
     _expr_root = os.path.join(_expr_root, f'prompt_{_slug(prompt)}')
 base_dir = os.path.join(_expr_root, 'trajectory')
+# annealed trajectory output nests under trajectory/annealed/ so it sits beside
+# (never overwrites) the plain-MALA trajectory - the filenames themselves don't
+# encode the sampler. plot_trajectory._traj_base mirrors this.
+if args.sampler == 'ANNEALED_MALA':
+    base_dir = os.path.join(base_dir, 'annealed')
 
 
 def run_mala_with_trace(dt, z_init, generator):

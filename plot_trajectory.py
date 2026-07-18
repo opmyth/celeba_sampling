@@ -26,24 +26,29 @@ def _slug(s):
     return s.lower().replace(' ', '_')
 
 
-def _traj_base(cfg, experiment, prompt):
+def _traj_base(cfg, experiment, prompt, sampler='MALA'):
     """experiments/<exp>/trajectory, or experiments/<exp>/prompt_<slug>/trajectory
     for imagereward experiments - prompt is the top-level container (results +
     trajectory both live under it), so a prompt's trajectory dir is structurally
-    identical to a classifier experiment's, just one level deeper."""
+    identical to a classifier experiment's, just one level deeper. Annealed
+    trajectory nests one further under .../trajectory/annealed/ so it never
+    overwrites the plain-MALA trajectory (mirrors run_trajectory.py)."""
     root = os.path.join('experiments', experiment)
     if cfg.kind == 'imagereward':
         root = os.path.join(root, f'prompt_{_slug(prompt)}')
-    return os.path.join(root, 'trajectory')
+    base = os.path.join(root, 'trajectory')
+    if sampler == 'ANNEALED_MALA':
+        base = os.path.join(base, 'annealed')
+    return base
 
 
-def _stepsize_dir(cfg, experiment, prompt):
-    return _traj_base(cfg, experiment, prompt)
+def _stepsize_dir(cfg, experiment, prompt, sampler='MALA'):
+    return _traj_base(cfg, experiment, prompt, sampler)
 
 
-def _init_dir(cfg, experiment, prompt, noise):
+def _init_dir(cfg, experiment, prompt, noise, sampler='MALA'):
     noise_dir = 'same_noise' if noise == 'same' else 'indep_noise'
-    return os.path.join(_traj_base(cfg, experiment, prompt), noise_dir)
+    return os.path.join(_traj_base(cfg, experiment, prompt, sampler), noise_dir)
 
 
 def _build_posterior(cfg, stylegan, clfs, prompt, device):
@@ -106,16 +111,16 @@ def _load_models_and_posterior(experiment, prompt):
     return cfg, prompt, stylegan, posterior
 
 
-def plot_stepsize_grid(experiment, prompt=None):
+def plot_stepsize_grid(experiment, prompt=None, sampler='MALA'):
     cfg, prompt, stylegan, posterior = _load_models_and_posterior(experiment, prompt)
-    out_dir = _stepsize_dir(cfg, experiment, prompt)
+    out_dir = _stepsize_dir(cfg, experiment, prompt, sampler)
     snapshots = torch.load(os.path.join(out_dir, 'stepsize_snapshots.pt'), weights_only=False)
 
     step_sizes = sorted(snapshots.keys())
     steps_present = sorted(snapshots[step_sizes[0]].keys())
     col_labels = [f'Step {s}' for s in steps_present]
     row_labels = [f'dt={dt}' for dt in step_sizes]
-    title = f'{experiment} - MALA trajectory by step size'
+    title = f'{experiment} - {sampler} trajectory by step size'
 
     fig, axes = _make_grid(len(row_labels), len(col_labels), row_labels, col_labels, title)
     for r, dt in enumerate(step_sizes):
@@ -132,14 +137,14 @@ def plot_stepsize_grid(experiment, prompt=None):
     print(f'Saved {out_path}')
 
 
-def plot_init_grid(experiment, noise='same', prompt=None):
+def plot_init_grid(experiment, noise='same', prompt=None, sampler='MALA'):
     cfg, prompt, stylegan, posterior = _load_models_and_posterior(experiment, prompt)
-    snap_dir = _init_dir(cfg, experiment, prompt, noise)
+    snap_dir = _init_dir(cfg, experiment, prompt, noise, sampler)
     snapshots = torch.load(os.path.join(snap_dir, 'init_snapshots.pt'), weights_only=False)
 
     steps_present = sorted(snapshots[INIT_TYPES[0]].keys())
     col_labels = [f'Step {s}' for s in steps_present]
-    title = f'{experiment} - MALA trajectory by init ({noise} noise)'
+    title = f'{experiment} - {sampler} trajectory by init ({noise} noise)'
     n_chains = next(iter(snapshots[INIT_TYPES[0]].values())).shape[0]
 
     # Capped at 2 grids no matter how many chains ran: each grid costs a
@@ -165,7 +170,7 @@ def plot_init_grid(experiment, noise='same', prompt=None):
         print(f'Saved {out_path}')
 
 
-def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None):
+def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None, sampler='MALA'):
     """metric: 'jump_distance' (||z_t+1 - z_t||_2) or 'log_reward', read
     straight from the trace .pt saved by run_trajectory.py (no re-sampling,
     no model needed). One subplot per swept value (dt or init type), each
@@ -187,12 +192,12 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
     mean_mode = chain_idx == 'mean'
 
     if mode == 'stepsize':
-        sub_dir = _stepsize_dir(cfg, experiment, prompt)
+        sub_dir = _stepsize_dir(cfg, experiment, prompt, sampler)
         traces = torch.load(os.path.join(sub_dir, 'stepsize_trace.pt'), weights_only=False)
         keys = sorted(traces.keys())
         label_fn = lambda k: f'dt={k}'
     else:
-        sub_dir = _init_dir(cfg, experiment, prompt, noise)
+        sub_dir = _init_dir(cfg, experiment, prompt, noise, sampler)
         traces = torch.load(os.path.join(sub_dir, 'init_trace.pt'), weights_only=False)
         keys = INIT_TYPES
         label_fn = lambda k: k
@@ -243,7 +248,7 @@ def plot_trace(experiment, mode, metric, noise='same', chain_idx=0, prompt=None)
         ylabel += f'  (mean over {n_chains} chains)'
     fig.supylabel(ylabel, fontsize=9)
     which = f'mean over {n_chains} chains' if mean_mode else f'chain {chain_idx}'
-    fig.suptitle(f'{experiment} - {metric} ({mode}, {which})', fontsize=11)
+    fig.suptitle(f'{experiment} - {sampler} {metric} ({mode}, {which})', fontsize=11)
     plt.tight_layout()
 
     suffix = 'mean' if mean_mode else f'chain{chain_idx}'
@@ -265,15 +270,18 @@ if __name__ == '__main__':
                          help="chain index for jump_distance/log_reward, or 'mean' "
                               "for the across-chain average trend")
     parser.add_argument('--prompt', type=str, default=None)
+    parser.add_argument('--sampler', default='MALA', choices=['MALA', 'ANNEALED_MALA'],
+                         help='which sampler run to plot (annealed reads/writes under '
+                              'trajectory/annealed/); must match the run_trajectory --sampler')
     args = parser.parse_args()
     chain = args.chain if args.chain == 'mean' else int(args.chain)
 
     if args.plot == 'stepsize':
-        plot_stepsize_grid(args.experiment, prompt=args.prompt)
+        plot_stepsize_grid(args.experiment, prompt=args.prompt, sampler=args.sampler)
     elif args.plot == 'init':
         noises = ['same', 'indep'] if args.noise == 'both' else [args.noise]
         for n in noises:
-            plot_init_grid(args.experiment, noise=n, prompt=args.prompt)
+            plot_init_grid(args.experiment, noise=n, prompt=args.prompt, sampler=args.sampler)
     else:
         if not args.mode:
             parser.error('--mode is required for jump_distance/log_reward')
@@ -281,9 +289,9 @@ if __name__ == '__main__':
             noises = ['same', 'indep'] if args.noise == 'both' else [args.noise]
             for n in noises:
                 plot_trace(args.experiment, 'init', args.plot, noise=n,
-                           chain_idx=chain, prompt=args.prompt)
+                           chain_idx=chain, prompt=args.prompt, sampler=args.sampler)
         else:
             plot_trace(args.experiment, 'stepsize', args.plot,
-                       chain_idx=chain, prompt=args.prompt)
+                       chain_idx=chain, prompt=args.prompt, sampler=args.sampler)
 
     print('Done.')
