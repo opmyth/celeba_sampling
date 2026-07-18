@@ -114,7 +114,12 @@ _BLIP_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(1, 3, 1, 1)
 
 def _preprocess_for_blip(imgs, device):
     imgs_01 = (imgs + 1) / 2
-    imgs_224 = F.interpolate(imgs_01, size=(224, 224), mode='bicubic', align_corners=False)
+    # MPS has no bicubic upsample kernel (aten::upsample_bicubic2d); do just the
+    # resize on CPU there, then move back. CUDA/CPU paths (cluster) are unchanged.
+    if imgs_01.device.type == 'mps':
+        imgs_224 = F.interpolate(imgs_01.cpu(), size=(224, 224), mode='bicubic', align_corners=False).to(device)
+    else:
+        imgs_224 = F.interpolate(imgs_01, size=(224, 224), mode='bicubic', align_corners=False)
     return (imgs_224 - _BLIP_MEAN.to(device)) / _BLIP_STD.to(device)
 
 def tokenize_prompt(reward_model, prompt, device, n):
