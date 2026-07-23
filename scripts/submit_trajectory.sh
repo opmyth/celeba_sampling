@@ -31,6 +31,14 @@ if [ -n "${N_STEPS:-}" ]; then STEP_ARGS=(--n_steps "$N_STEPS"); fi
 SAMPLER_ARGS=()
 if [ -n "${SAMPLER:-}" ]; then SAMPLER_ARGS=(--sampler "$SAMPLER"); fi
 
+# NOISE_MODE=const makes StyleGAN2's synthesis noise deterministic; those runs
+# write to a parallel trajectory_const/ tree, which plot_trajectory.py does not
+# read - so skip the plotting steps and let analyze_const_vs_random.py do the
+# comparison. NOISE_MODE=random (default) keeps the full run+plot pipeline.
+NOISE_MODE=${NOISE_MODE:-random}
+NOISE_MODE_ARGS=(--noise_mode "$NOISE_MODE")
+if [ "$NOISE_MODE" = "random" ]; then DO_PLOTS=1; else DO_PLOTS=0; fi
+
 run_init() {
     if [ "$NOISE" = "both" ]; then
         NOISES=(same indep)
@@ -38,7 +46,8 @@ run_init() {
         NOISES=("$NOISE")
     fi
     for N in "${NOISES[@]}"; do
-        python run_trajectory.py --experiment "$EXPR" --mode init --noise "$N" "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}" "${SAMPLER_ARGS[@]}"
+        python run_trajectory.py --experiment "$EXPR" --mode init --noise "$N" "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}" "${SAMPLER_ARGS[@]}" "${NOISE_MODE_ARGS[@]}"
+        [ "$DO_PLOTS" = 1 ] || continue
         python plot_trajectory.py --experiment "$EXPR" --plot init --noise "$N" "${PROMPT_ARGS[@]}" "${SAMPLER_ARGS[@]}"
         # across-chain mean convergence trend only (single-chain0 traces dropped
         # 2026-07-17 - the 25-chain mean supersedes the noisy single walker)
@@ -48,7 +57,8 @@ run_init() {
 }
 
 run_stepsize() {
-    python run_trajectory.py --experiment "$EXPR" --mode stepsize "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}" "${SAMPLER_ARGS[@]}"
+    python run_trajectory.py --experiment "$EXPR" --mode stepsize "${PROMPT_ARGS[@]}" "${STEP_ARGS[@]}" "${SAMPLER_ARGS[@]}" "${NOISE_MODE_ARGS[@]}"
+    [ "$DO_PLOTS" = 1 ] || return 0
     python plot_trajectory.py --experiment "$EXPR" --plot stepsize "${PROMPT_ARGS[@]}" "${SAMPLER_ARGS[@]}"
     # across-chain mean convergence trend only (single-chain0 traces dropped
     # 2026-07-17 - the 25-chain mean supersedes the noisy single walker)

@@ -26,9 +26,10 @@ def classifier_posterior(model, clfs: list) -> Posterior:
     single-classifier case (smile/eyeglasses/bald/male) and the joint case
     (male_eye = [male_clf, eye_clf]) with the same code path."""
     chunk = model.max_batch_size
+    noise_mode = getattr(model, 'noise_mode', 'random')
 
     def _reward_chunk(z_chunk):
-        imgs = model.G(z_chunk, None)
+        imgs = model.G(z_chunk, None, noise_mode=noise_mode)
         return sum(F.logsigmoid(clf(imgs).squeeze(-1)) for clf in clfs)
 
     def log_p_fn(z):
@@ -79,12 +80,13 @@ def estimate_r_max(model, reward_model, prompt, device, n_samples, generator, ch
     under the old pre-clipping approach.
     """
     prompt_ids, prompt_mask = tokenize_prompt(reward_model, prompt, device, chunk_size)
+    noise_mode = getattr(model, 'noise_mode', 'random')
     scan = []
     for start in range(0, n_samples, chunk_size):
         size = min(chunk_size, n_samples - start)
         z_chunk = torch.randn(size, model.latent_dim, device=device, generator=generator)
         with torch.no_grad():
-            imgs = model.G(z_chunk, None)
+            imgs = model.G(z_chunk, None, noise_mode=noise_mode)
             imgs_blip = _preprocess_for_blip(imgs, device)
             scores = reward_model.score_gard(prompt_ids[:size], prompt_mask[:size], imgs_blip).squeeze(-1)
         scan.append(scores.cpu())
@@ -127,10 +129,11 @@ def imagereward_posterior(model, reward_model, prompt, device, r_max, chunk_size
     produces the correct tempered gradient. reward_only_fn always returns the
     untempered (beta=1) clipped score."""
     prompt_ids, prompt_mask = tokenize_prompt(reward_model, prompt, device, chunk_size)
+    noise_mode = getattr(model, 'noise_mode', 'random')
 
     def _reward_chunk(z_chunk):
         B = z_chunk.size(0)
-        imgs = model.G(z_chunk, None)
+        imgs = model.G(z_chunk, None, noise_mode=noise_mode)
         imgs_blip = _preprocess_for_blip(imgs, z_chunk.device)
         raw = reward_model.score_gard(prompt_ids[:B], prompt_mask[:B], imgs_blip).squeeze(-1)
         return torch.clamp(raw, max=r_max)

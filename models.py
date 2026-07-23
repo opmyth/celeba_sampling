@@ -93,17 +93,24 @@ class classifier(nn.Module):
         return self.fc(x) #(B, 1)        
 
 class StyleGAN2Wrapper(nn.Module):
-    def __init__(self, G, max_batch_size=64):
+    def __init__(self, G, max_batch_size=64, noise_mode='random'):
         super().__init__()
         self.G = G
         self.latent_dim = G.z_dim  # 512
         self.max_batch_size = max_batch_size
+        # 'random' (StyleGAN2 default) injects fresh per-layer noise on every
+        # forward pass, so decoding the same z twice differs; 'const' reuses
+        # each layer's fixed noise buffer, making G deterministic in z. The
+        # posterior factories read this off the wrapper (getattr, default
+        # 'random') and forward it to G, so it governs the sampling path too,
+        # not just the wrapper's own forward.
+        self.noise_mode = noise_mode
 
     def forward(self, z):
         if z.size(0) <= self.max_batch_size:
-            return self.G(z, None)
+            return self.G(z, None, noise_mode=self.noise_mode)
 
         outputs = []
         for chunk in torch.split(z, self.max_batch_size, dim=0):
-            outputs.append(self.G(chunk, None))
+            outputs.append(self.G(chunk, None, noise_mode=self.noise_mode))
         return torch.cat(outputs, dim=0)

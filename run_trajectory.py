@@ -89,6 +89,13 @@ parser.add_argument('--sampler', default='MALA', choices=['MALA', 'ANNEALED_MALA
                           'ANNEALED_MALA warms up per config then runs the T=1 tail as MALA - '
                           'the saved trace/snapshots are the tail, from the annealed start state.')
 parser.add_argument('--seed', type=int, default=42)
+parser.add_argument('--noise_mode', default='random', choices=['random', 'const'],
+                     help="StyleGAN2 synthesis noise. 'random' (default): fresh "
+                          'per-layer noise each decode, so G(z) is stochastic in z '
+                          '(the standard pipeline). const: fixed per-layer noise, so '
+                          'G(z) is deterministic - decouples the reward-landscape '
+                          'stochasticity from the coupling. const runs write to a '
+                          'trajectory_const/ dir so they never overwrite random data.')
 args = parser.parse_args()
 
 from utils import maybe_enable_tf32
@@ -104,6 +111,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Device: {device}', flush=True)
 
 stylegan, clfs, _ = load_models(cfg.clf_names or [], device)
+stylegan.noise_mode = args.noise_mode
+print(f'StyleGAN2 noise_mode: {stylegan.noise_mode}', flush=True)
 if cfg.kind == 'classifier':
     posterior = classifier_posterior(stylegan, [clfs[n] for n in cfg.clf_names])
 else:
@@ -122,7 +131,10 @@ else:
 _expr_root = os.path.join('experiments', args.experiment)
 if cfg.kind == 'imagereward':
     _expr_root = os.path.join(_expr_root, f'prompt_{_slug(prompt)}')
-base_dir = os.path.join(_expr_root, 'trajectory')
+# noise_mode='const' runs go in a parallel trajectory_const/ tree so they sit
+# beside, and never overwrite, the standard noise_mode='random' output.
+_traj_name = 'trajectory' if args.noise_mode == 'random' else 'trajectory_const'
+base_dir = os.path.join(_expr_root, _traj_name)
 # annealed trajectory output nests under trajectory/annealed/ so it sits beside
 # (never overwrites) the plain-MALA trajectory - the filenames themselves don't
 # encode the sampler. plot_trajectory._traj_base mirrors this.
@@ -153,7 +165,9 @@ def run_mala_with_trace(dt, z_init, generator):
 
 
 if args.mode == 'stepsize':
-    out_dir = os.path.join(base_dir, prompt_slug) if prompt_slug else base_dir
+    # prompt nesting is already folded into base_dir via _expr_root above
+    # (prompt-first layout), so base_dir is the output dir directly.
+    out_dir = base_dir
     os.makedirs(out_dir, exist_ok=True)
 
     init_gen = rng_mod.make_generator(args.seed, device)
@@ -188,8 +202,6 @@ else:  # init
 
     noise_dir = 'same_noise' if args.noise == 'same' else 'indep_noise'
     sub_dir = os.path.join(base_dir, noise_dir)
-    if prompt_slug:
-        sub_dir = os.path.join(sub_dir, prompt_slug)
     os.makedirs(sub_dir, exist_ok=True)
     torch.save(snapshots, os.path.join(sub_dir, 'init_snapshots.pt'))
     torch.save(traces, os.path.join(sub_dir, 'init_trace.pt'))
